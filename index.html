@@ -299,6 +299,84 @@
   .media-add:hover{border-color:var(--amber); background:var(--amber-soft);}
   .media-add svg{width:20px;height:20px;}
 
+  /* Actions à mener */
+  .actions-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch;}
+  table.actions-table{
+    width:100%;
+    min-width:520px;
+    border-collapse:collapse;
+  }
+  table.actions-table th{
+    text-align:left;
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:0.6px;
+    color:var(--navy);
+    background:var(--amber-soft);
+    padding:10px 12px;
+    border:1px solid var(--line);
+  }
+  table.actions-table th.col-action{width:48%;}
+  table.actions-table th.col-delai{width:18%;}
+  table.actions-table th.col-qui{width:22%;}
+  table.actions-table th.col-rm{width:36px;}
+  table.actions-table td{
+    border:1px solid var(--line);
+    padding:6px 8px;
+    vertical-align:top;
+  }
+  table.actions-table textarea.action-input{
+    width:100%;
+    border:none;
+    resize:vertical;
+    min-height:38px;
+    font-family:var(--font-body);
+    font-size:14px;
+    color:var(--ink);
+    background:transparent;
+    padding:2px;
+    line-height:1.4;
+  }
+  table.actions-table textarea.action-input:focus{outline:none;}
+  table.actions-table input.delai-input,
+  table.actions-table input.qui-input{
+    width:100%;
+    border:none;
+    font-family:var(--font-body);
+    font-size:14px;
+    color:var(--ink);
+    background:transparent;
+    padding:4px 2px;
+  }
+  table.actions-table input.delai-input:focus,
+  table.actions-table input.qui-input:focus{outline:none;}
+  table.actions-table td.rm-cell{text-align:center;}
+  .row-rm{
+    border:none;
+    background:transparent;
+    color:var(--gray-off);
+    font-size:16px;
+    cursor:pointer;
+    line-height:1;
+    padding:4px;
+  }
+  .row-rm:hover{color:#B4732B;}
+  .add-row-btn{
+    margin-top:14px;
+    font-family:var(--font-mono);
+    font-size:11.5px;
+    letter-spacing:0.8px;
+    text-transform:uppercase;
+    border:1.5px dashed var(--line);
+    background:transparent;
+    color:var(--navy);
+    padding:8px 16px;
+    border-radius:20px;
+    cursor:pointer;
+    transition:all .15s ease;
+  }
+  .add-row-btn:hover{border-color:var(--amber); background:var(--amber-soft);}
+
   .export-bar{
     display:flex;
     justify-content:center;
@@ -511,6 +589,34 @@
     </div>
   </div>
 
+  <!-- ACTIONS A MENER -->
+  <div class="major-block">
+    <h1>Actions à mener</h1>
+    <div class="major-inner">
+      <div class="actions-wrap">
+        <table class="actions-table" id="actionsTable">
+          <thead>
+            <tr>
+              <th class="col-action">Action</th>
+              <th class="col-delai">Délai</th>
+              <th class="col-qui">Par qui</th>
+              <th class="col-rm"></th>
+            </tr>
+          </thead>
+          <tbody id="actionsBody">
+            <tr>
+              <td><textarea class="action-input" placeholder="Décrire l'action à mener"></textarea></td>
+              <td><input type="text" class="delai-input" placeholder="Ex : 1 semaine"></td>
+              <td><input type="text" class="qui-input" placeholder="Nom"></td>
+              <td class="rm-cell"><button type="button" class="row-rm" title="Supprimer la ligne">×</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <button type="button" id="addRowBtn" class="add-row-btn">+ Ajouter une ligne</button>
+    </div>
+  </div>
+
   <div class="export-bar">
     <button id="exportBtn">Valider et exporter en PDF</button>
   </div>
@@ -519,6 +625,124 @@
 </div>
 
 <script>
+// ---------- Sauvegarde automatique locale ----------
+const STORAGE_KEY = 'lockall_visite_draft_v1';
+let saveTimer = null;
+function scheduleSave(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveState, 300);
+}
+
+function collectState(){
+  const state = { fields:{}, items:{}, actions:[] };
+  ['visitDate','siteSelect','managerInput','teamInput','googleCount'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) state.fields[id] = el.value;
+  });
+  document.querySelectorAll('.item[data-field]').forEach(item=>{
+    const key = item.dataset.field;
+    const textarea = item.querySelector('textarea');
+    const rasBtn = item.querySelector('.ras-btn');
+    state.items[key] = {
+      text: textarea ? (rasBtn && rasBtn.classList.contains('active') ? (textarea.dataset.prev || '') : textarea.value) : '',
+      ras: rasBtn ? rasBtn.classList.contains('active') : false,
+      photos: photoStore[key] || []
+    };
+  });
+  document.querySelectorAll('#actionsBody tr').forEach(tr=>{
+    state.actions.push({
+      action: tr.querySelector('.action-input').value,
+      delai: tr.querySelector('.delai-input').value,
+      qui: tr.querySelector('.qui-input').value
+    });
+  });
+  return state;
+}
+
+function saveState(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(collectState()));
+  }catch(e){
+    // Quota dépassé (souvent à cause des photos) : on retente sans les photos
+    try{
+      const state = collectState();
+      Object.keys(state.items).forEach(k=> state.items[k].photos = []);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }catch(e2){ /* abandon silencieux */ }
+  }
+}
+
+function restoreState(){
+  let raw;
+  try{ raw = localStorage.getItem(STORAGE_KEY); }catch(e){ return; }
+  if(!raw) return;
+  let state;
+  try{ state = JSON.parse(raw); }catch(e){ return; }
+
+  Object.keys(state.fields || {}).forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.value = state.fields[id];
+  });
+
+  Object.keys(state.items || {}).forEach(key=>{
+    const item = document.querySelector(`.item[data-field="${key}"]`);
+    if(!item) return;
+    const data = state.items[key];
+    const textarea = item.querySelector('textarea');
+    const rasBtn = item.querySelector('.ras-btn');
+
+    if(textarea && data.text) textarea.value = data.text;
+    if(textarea && data.text && data.text.trim().length>0) item.classList.add('filled');
+
+    if(rasBtn && data.ras){
+      rasBtn.classList.add('active');
+      item.classList.add('ras');
+      item.classList.add('filled');
+      if(textarea){
+        textarea.dataset.prev = data.text || '';
+        textarea.value = 'RAS';
+        textarea.disabled = true;
+      }
+    }
+
+    if(data.photos && data.photos.length && photoStore[key]){
+      photoStore[key] = data.photos;
+      if(item._renderThumbs) item._renderThumbs();
+      if(data.photos.length) item.classList.add('filled');
+    }
+  });
+
+  if(state.actions && state.actions.length){
+    const tbody = document.getElementById('actionsBody');
+    tbody.innerHTML = '';
+    state.actions.forEach(a=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><textarea class="action-input" placeholder="Décrire l'action à mener"></textarea></td>
+        <td><input type="text" class="delai-input" placeholder="Ex : 1 semaine"></td>
+        <td><input type="text" class="qui-input" placeholder="Nom"></td>
+        <td class="rm-cell"><button type="button" class="row-rm" title="Supprimer la ligne">×</button></td>
+      `;
+      tr.querySelector('.action-input').value = a.action || '';
+      tr.querySelector('.delai-input').value = a.delai || '';
+      tr.querySelector('.qui-input').value = a.qui || '';
+      tbody.appendChild(tr);
+      wireActionRow(tr);
+    });
+  }
+}
+
+// ---------- Icône calendrier ----------
+document.querySelectorAll('.date-wrap').forEach(wrap=>{
+  const input = wrap.querySelector('input[type=date]');
+  wrap.addEventListener('click', ()=>{
+    if(typeof input.showPicker === 'function'){
+      try{ input.showPicker(); }catch(e){}
+    }
+  });
+});
+
+// ---------- Photos ----------
 // Stockage des photos par champ : { fieldKey: [ {dataUrl, w, h} ] }
 const photoStore = {};
 
@@ -536,18 +760,22 @@ function buildMediaUI(item){
   const row = document.createElement('div');
   row.className = 'media-row';
 
-  const addBtn = document.createElement('button');
-  addBtn.type = 'button';
-  addBtn.className = 'media-add';
-  addBtn.innerHTML = cameraIconSVG;
-  addBtn.title = "Ajouter une photo";
+  // Label englobant l'input file : plus fiable sur mobile (Safari/Chrome Android)
+  const addLabel = document.createElement('label');
+  addLabel.className = 'media-add';
+  addLabel.title = "Prendre une photo ou choisir dans la galerie";
+  addLabel.innerHTML = cameraIconSVG;
 
   const fileInput = document.createElement('input');
   fileInput.type = 'file';
   fileInput.accept = 'image/*';
-  fileInput.style.display = 'none';
+  fileInput.style.position = 'absolute';
+  fileInput.style.width = '1px';
+  fileInput.style.height = '1px';
+  fileInput.style.opacity = '0';
+  fileInput.style.overflow = 'hidden';
 
-  addBtn.addEventListener('click', ()=> fileInput.click());
+  addLabel.appendChild(fileInput);
 
   fileInput.addEventListener('change', ()=>{
     const file = fileInput.files[0];
@@ -559,6 +787,7 @@ function buildMediaUI(item){
         photoStore[key].push({dataUrl:e.target.result, w:img.naturalWidth, h:img.naturalHeight});
         renderThumbs();
         item.classList.add('filled');
+        scheduleSave();
       };
       img.src = e.target.result;
     };
@@ -580,37 +809,36 @@ function buildMediaUI(item){
       rm.addEventListener('click', ()=>{
         photoStore[key].splice(idx,1);
         renderThumbs();
+        scheduleSave();
       });
       thumb.appendChild(im);
       thumb.appendChild(rm);
-      row.insertBefore(thumb, addBtn);
+      row.insertBefore(thumb, addLabel);
     });
   }
+  item._renderThumbs = renderThumbs;
 
-  row.appendChild(addBtn);
-  row.appendChild(fileInput);
+  row.appendChild(addLabel);
   item.appendChild(row);
 }
 
 const noPhotoFields = ['com_leads','com_coaching','bad_suivi','bad_cas','google_avis'];
-document.querySelectorAll('.date-wrap').forEach(wrap=>{
-  const input = wrap.querySelector('input[type=date]');
-  wrap.addEventListener('click', ()=>{
-    if(typeof input.showPicker === 'function'){
-      try{ input.showPicker(); }catch(e){}
-    }
-  });
-});
-
+document.querySelectorAll('.item[data-field]').forEach(item=>{
   if(!noPhotoFields.includes(item.dataset.field)) buildMediaUI(item);
 });
 
-document.querySelectorAll('.item textarea').forEach(t=>{
+// ---------- Champs texte ----------
+document.querySelectorAll('.item textarea, .infocard-grid textarea, .infocard-grid input, #googleCount').forEach(t=>{
   t.addEventListener('input', ()=>{
-    t.closest('.item').classList.toggle('filled', t.value.trim().length>0);
+    const item = t.closest('.item');
+    if(item) item.classList.toggle('filled', t.value.trim().length>0);
+    scheduleSave();
   });
 });
+document.getElementById('siteSelect').addEventListener('change', scheduleSave);
+document.getElementById('visitDate').addEventListener('change', scheduleSave);
 
+// ---------- RAS ----------
 document.querySelectorAll('.ras-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     const item = btn.closest('.item');
@@ -625,9 +853,46 @@ document.querySelectorAll('.ras-btn').forEach(btn=>{
     } else {
       textarea.disabled = false;
       textarea.value = textarea.dataset.prev || '';
-      item.classList.toggle('filled', textarea.value.trim().length>0 || photoStore[item.dataset.field].length>0);
+      const hasPhotos = (photoStore[item.dataset.field] || []).length>0;
+      item.classList.toggle('filled', textarea.value.trim().length>0 || hasPhotos);
     }
+    scheduleSave();
   });
+});
+
+// ---------- Restauration du brouillon ----------
+restoreState();
+
+// ---------- Tableau Actions à mener ----------
+function wireActionRow(tr){
+  const rmBtn = tr.querySelector('.row-rm');
+  rmBtn.addEventListener('click', ()=>{
+    const tbody = document.getElementById('actionsBody');
+    if(tbody.children.length > 1){
+      tr.remove();
+    } else {
+      tr.querySelectorAll('textarea, input').forEach(el=> el.value = '');
+    }
+    scheduleSave();
+  });
+  tr.querySelectorAll('textarea, input').forEach(el=>{
+    el.addEventListener('input', scheduleSave);
+  });
+}
+document.querySelectorAll('#actionsBody tr').forEach(wireActionRow);
+
+document.getElementById('addRowBtn').addEventListener('click', ()=>{
+  const tbody = document.getElementById('actionsBody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><textarea class="action-input" placeholder="Décrire l'action à mener"></textarea></td>
+    <td><input type="text" class="delai-input" placeholder="Ex : 1 semaine"></td>
+    <td><input type="text" class="qui-input" placeholder="Nom"></td>
+    <td class="rm-cell"><button type="button" class="row-rm" title="Supprimer la ligne">×</button></td>
+  `;
+  tbody.appendChild(tr);
+  wireActionRow(tr);
+  scheduleSave();
 });
 
 document.getElementById('exportBtn').addEventListener('click', async ()=>{
@@ -792,9 +1057,83 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
     });
   });
 
+  // ---------- Tableau Actions à mener ----------
+  const actionRows = Array.from(document.querySelectorAll('#actionsBody tr')).map(tr=>({
+    action: tr.querySelector('.action-input').value.trim(),
+    delai: tr.querySelector('.delai-input').value.trim(),
+    qui: tr.querySelector('.qui-input').value.trim()
+  })).filter(r=> r.action || r.delai || r.qui);
+
+  checkPage(40);
+  y_ += 10;
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(15);
+  doc.setTextColor(21,42,78);
+  doc.text('Actions à mener', marginX, y_);
+  y_ += 8;
+  doc.setDrawColor(240,164,0);
+  doc.setLineWidth(2);
+  doc.line(marginX, y_, marginX+40, y_);
+  doc.setLineWidth(1);
+  y_ += 18;
+
+  const tableW = pageW - marginX*2;
+  const colAction = tableW * 0.5;
+  const colDelai = tableW * 0.22;
+  const colQui = tableW * 0.28;
+  const rowPad = 6;
+
+  function drawTableHeader(){
+    checkPage(24);
+    doc.setFillColor(253,239,211);
+    doc.rect(marginX, y_, tableW, 20, 'F');
+    doc.setDrawColor(225,228,234);
+    doc.rect(marginX, y_, tableW, 20);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(10);
+    doc.setTextColor(21,42,78);
+    doc.text('Action', marginX+6, y_+13);
+    doc.text('Délai', marginX+colAction+6, y_+13);
+    doc.text('Par qui', marginX+colAction+colDelai+6, y_+13);
+    y_ += 20;
+  }
+
+  drawTableHeader();
+
+  if(actionRows.length === 0){
+    checkPage(24);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(10.5);
+    doc.setTextColor(0,0,0);
+    doc.rect(marginX, y_, tableW, 22);
+    doc.text('—', marginX+6, y_+14);
+    y_ += 22;
+  } else {
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(10);
+    actionRows.forEach(row=>{
+      const actionLines = doc.splitTextToSize(row.action || '—', colAction - 12);
+      const delaiLines = doc.splitTextToSize(row.delai || '—', colDelai - 12);
+      const quiLines = doc.splitTextToSize(row.qui || '—', colQui - 12);
+      const maxLines = Math.max(actionLines.length, delaiLines.length, quiLines.length);
+      const rowH = maxLines*12 + rowPad*2;
+
+      checkPage(rowH);
+      doc.setDrawColor(225,228,234);
+      doc.rect(marginX, y_, tableW, rowH);
+      doc.setTextColor(0,0,0);
+      doc.text(actionLines, marginX+6, y_+rowPad+9);
+      doc.text(delaiLines, marginX+colAction+6, y_+rowPad+9);
+      doc.text(quiLines, marginX+colAction+colDelai+6, y_+rowPad+9);
+      y_ += rowH;
+    });
+  }
+  y_ += 20;
+
   doc.save(fileName);
   status.style.color = '#152A4E';
   status.textContent = `Exporté : ${fileName}`;
+  try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
 });
 </script>
 </body>
