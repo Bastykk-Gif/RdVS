@@ -45,14 +45,22 @@
     flex-wrap:wrap;
   }
   header.top .logo-mark{flex-shrink:0;}
-  header.top .titles{display:flex; flex-direction:column;}
+  header.top .titles{
+    display:flex;
+    flex-direction:column;
+    margin-left:auto;
+  }
   header.top .brand{
     font-family:var(--font-heavy);
     font-weight:900;
-    font-size:clamp(20px,4.2vw,30px);
-    color:var(--navy);
+    font-size:clamp(22px,6vw,32px);
+    color:var(--amber);
     letter-spacing:-0.3px;
     line-height:1.1;
+    background:var(--navy);
+    padding:10px 20px;
+    border-radius:10px;
+    text-align:right;
   }
   header.top .sub{
     font-family:var(--font-mono);
@@ -447,7 +455,6 @@
     </div>
     <div class="titles">
       <div class="brand">Rapport de visite de site</div>
-      <div class="sub">LOCKALL</div>
     </div>
   </header>
 
