@@ -179,6 +179,11 @@
     display:block;
     font-size:14.5px;
     font-weight:600;
+    margin-bottom:8px;
+  }
+  .item .ras-btn{
+    display:inline-block;
+    margin-bottom:10px;
   }
   .item textarea{
     width:100%;
@@ -348,6 +353,14 @@
     background:transparent;
     padding:4px 2px;
   }
+  table.actions-table td .date-wrap{position:relative;}
+  table.actions-table td .date-wrap input[type=date]{
+    padding-left:22px;
+  }
+  table.actions-table td .date-wrap .cal-icon{
+    left:0;
+    transform:translateY(-45%);
+  }
   table.actions-table input.delai-input:focus,
   table.actions-table input.qui-input:focus{outline:none;}
   table.actions-table td.rm-cell{text-align:center;}
@@ -361,6 +374,14 @@
     padding:4px;
   }
   .row-rm:hover{color:#B4732B;}
+  table.actions-table input.delai-input::-webkit-calendar-picker-indicator{
+    position:absolute;
+    left:0; top:0;
+    width:100%; height:100%;
+    margin:0; padding:0;
+    opacity:0;
+    cursor:pointer;
+  }
   .add-row-btn{
     margin-top:14px;
     font-family:var(--font-mono);
@@ -421,11 +442,7 @@
 
   <header class="top">
     <div class="logo-mark">
-      <svg width="46" height="46" viewBox="0 0 46 46" xmlns="http://www.w3.org/2000/svg">
-        <rect x="1" y="1" width="44" height="44" rx="12" fill="#152A4E"/>
-        <path d="M23 12a7 7 0 0 0-7 7v4h-1.5a1.5 1.5 0 0 0-1.5 1.5v9A1.5 1.5 0 0 0 14.5 35h17a1.5 1.5 0 0 0 1.5-1.5v-9a1.5 1.5 0 0 0-1.5-1.5H30v-4a7 7 0 0 0-7-7Zm0 3a4 4 0 0 1 4 4v4h-8v-4a4 4 0 0 1 4-4Z" fill="#F0A400"/>
-        <circle cx="23" cy="27.5" r="2.1" fill="#152A4E"/>
-      </svg>
+      <img src="https://media.licdn.com/dms/image/v2/C4E0BAQHQtjqQ956JNg/company-logo_200_200/company-logo_200_200/0/1630633031863/lockall_logo?e=2147483647&v=beta&t=LnSrL5qbEZSMoMm7Gkd0FK3KJuqraSeCBPBSODnCk2U" alt="Lockall" style="height:clamp(56px,12vw,84px); width:auto; border-radius:14px; display:block; object-fit:cover;">
     </div>
     <div class="titles">
       <div class="brand">Rapport de visite de site</div>
@@ -501,10 +518,8 @@
         <textarea placeholder="Commentaires"></textarea>
       </div>
       <div class="item ras-item" data-field="bad_inventaires">
-        <div class="item-row">
-          <label>Préparation et suivi des inventaires</label>
-          <button type="button" class="ras-btn">RAS</button>
-        </div>
+        <label>Préparation et suivi des inventaires</label>
+        <button type="button" class="ras-btn">RAS</button>
         <textarea placeholder="Avancement, écarts, actions à mener..."></textarea>
       </div>
 
@@ -530,19 +545,23 @@
 
       <div class="part-header"><h2>Intérieur</h2></div>
       <div class="item ras-item" data-field="int_livraison">
-        <div class="item-row"><label>Zone livraison</label><button type="button" class="ras-btn">RAS</button></div>
+        <label>Zone livraison</label>
+        <button type="button" class="ras-btn">RAS</button>
         <textarea placeholder="État, organisation, accès..."></textarea>
       </div>
       <div class="item ras-item" data-field="int_couloirs">
-        <div class="item-row"><label>Couloirs</label><button type="button" class="ras-btn">RAS</button></div>
+        <label>Couloirs</label>
+        <button type="button" class="ras-btn">RAS</button>
         <textarea placeholder="Propreté, éclairage, encombrement..."></textarea>
       </div>
       <div class="item ras-item" data-field="int_communautaire">
-        <div class="item-row"><label>Zone communautaire (salle de déjeuner)</label><button type="button" class="ras-btn">RAS</button></div>
+        <label>Zone communautaire (salle de déjeuner)</label>
+        <button type="button" class="ras-btn">RAS</button>
         <textarea placeholder="Propreté, équipements..."></textarea>
       </div>
       <div class="item ras-item" data-field="int_sanitaires">
-        <div class="item-row"><label>Sanitaire clients</label><button type="button" class="ras-btn">RAS</button></div>
+        <label>Sanitaire clients</label>
+        <button type="button" class="ras-btn">RAS</button>
         <textarea placeholder="Propreté, fonctionnement, consommables..."></textarea>
       </div>
       <div class="item" data-field="int_divers">
@@ -552,11 +571,13 @@
 
       <div class="part-header"><h2>Extérieur</h2></div>
       <div class="item ras-item" data-field="ext_parking">
-        <div class="item-row"><label>Parking</label><button type="button" class="ras-btn">RAS</button></div>
+        <label>Parking</label>
+        <button type="button" class="ras-btn">RAS</button>
         <textarea placeholder="État..."></textarea>
       </div>
       <div class="item ras-item" data-field="ext_murs">
-        <div class="item-row"><label>Murs, façades et grillages</label><button type="button" class="ras-btn">RAS</button></div>
+        <label>Murs, façades et grillages</label>
+        <button type="button" class="ras-btn">RAS</button>
         <textarea placeholder="État général, dégradations, sécurité..."></textarea>
       </div>
       <div class="item" data-field="ext_divers">
@@ -566,19 +587,23 @@
 
       <div class="part-header"><h2>Accueil</h2></div>
       <div class="item ras-item" data-field="acc_bureaux">
-        <div class="item-row"><label>Bureaux staff</label><button type="button" class="ras-btn">RAS</button></div>
+        <label>Bureaux staff</label>
+        <button type="button" class="ras-btn">RAS</button>
         <textarea placeholder="Rangement, tenue de l'espace..."></textarea>
       </div>
       <div class="item ras-item" data-field="acc_salon">
-        <div class="item-row"><label>Salon &amp; marchandises</label><button type="button" class="ras-btn">RAS</button></div>
+        <label>Salon &amp; marchandises</label>
+        <button type="button" class="ras-btn">RAS</button>
         <textarea placeholder="Présentation, stock, étiquetage..."></textarea>
       </div>
       <div class="item ras-item" data-field="acc_ecran">
-        <div class="item-row"><label>Écran TV</label><button type="button" class="ras-btn">RAS</button></div>
+        <label>Écran TV</label>
+        <button type="button" class="ras-btn">RAS</button>
         <textarea placeholder="Fonctionnement, contenu diffusé..."></textarea>
       </div>
       <div class="item ras-item" data-field="acc_cuisine">
-        <div class="item-row"><label>Espace cuisine</label><button type="button" class="ras-btn">RAS</button></div>
+        <label>Espace cuisine</label>
+        <button type="button" class="ras-btn">RAS</button>
         <textarea placeholder="Propreté, équipements, stock..."></textarea>
       </div>
       <div class="item" data-field="acc_divers">
@@ -606,7 +631,7 @@
           <tbody id="actionsBody">
             <tr>
               <td><textarea class="action-input" placeholder="Décrire l'action à mener"></textarea></td>
-              <td><input type="text" class="delai-input" placeholder="Ex : 1 semaine"></td>
+              <td><div class="date-wrap"><input type="date" class="delai-input"><svg class="cal-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="4.5" width="18" height="16" rx="2.5" stroke="#152A4E" stroke-width="1.6"/><path d="M3 9.5H21" stroke="#152A4E" stroke-width="1.6"/><path d="M8 2.5V6.5" stroke="#152A4E" stroke-width="1.6" stroke-linecap="round"/><path d="M16 2.5V6.5" stroke="#152A4E" stroke-width="1.6" stroke-linecap="round"/></svg></div></td>
               <td><input type="text" class="qui-input" placeholder="Nom"></td>
               <td class="rm-cell"><button type="button" class="row-rm" title="Supprimer la ligne">×</button></td>
             </tr>
@@ -713,22 +738,20 @@ function restoreState(){
   });
 
   if(state.actions && state.actions.length){
-    const tbody = document.getElementById('actionsBody');
-    tbody.innerHTML = '';
-    state.actions.forEach(a=>{
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td><textarea class="action-input" placeholder="Décrire l'action à mener"></textarea></td>
-        <td><input type="text" class="delai-input" placeholder="Ex : 1 semaine"></td>
-        <td><input type="text" class="qui-input" placeholder="Nom"></td>
-        <td class="rm-cell"><button type="button" class="row-rm" title="Supprimer la ligne">×</button></td>
-      `;
-      tr.querySelector('.action-input').value = a.action || '';
-      tr.querySelector('.delai-input').value = a.delai || '';
-      tr.querySelector('.qui-input').value = a.qui || '';
-      tbody.appendChild(tr);
-      wireActionRow(tr);
-    });
+    const meaningful = state.actions.filter(a=> (a.action || a.delai || a.qui));
+    if(meaningful.length){
+      const tbody = document.getElementById('actionsBody');
+      tbody.innerHTML = '';
+      meaningful.forEach(a=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = actionRowTemplate;
+        tr.querySelector('.action-input').value = a.action || '';
+        tr.querySelector('.delai-input').value = a.delai || '';
+        tr.querySelector('.qui-input').value = a.qui || '';
+        tbody.appendChild(tr);
+        wireActionRow(tr);
+      });
+    }
   }
 }
 
@@ -863,6 +886,22 @@ document.querySelectorAll('.ras-btn').forEach(btn=>{
 // ---------- Restauration du brouillon ----------
 restoreState();
 
+const actionRowTemplate = `
+  <td><textarea class="action-input" placeholder="Décrire l'action à mener"></textarea></td>
+  <td><div class="date-wrap"><input type="date" class="delai-input"><svg class="cal-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="4.5" width="18" height="16" rx="2.5" stroke="#152A4E" stroke-width="1.6"/><path d="M3 9.5H21" stroke="#152A4E" stroke-width="1.6"/><path d="M8 2.5V6.5" stroke="#152A4E" stroke-width="1.6" stroke-linecap="round"/><path d="M16 2.5V6.5" stroke="#152A4E" stroke-width="1.6" stroke-linecap="round"/></svg></div></td>
+  <td><input type="text" class="qui-input" placeholder="Nom"></td>
+  <td class="rm-cell"><button type="button" class="row-rm" title="Supprimer la ligne">×</button></td>
+`;
+
+function wireDateWrap(wrap){
+  const input = wrap.querySelector('input[type=date]');
+  wrap.addEventListener('click', ()=>{
+    if(typeof input.showPicker === 'function'){
+      try{ input.showPicker(); }catch(e){}
+    }
+  });
+}
+
 // ---------- Tableau Actions à mener ----------
 function wireActionRow(tr){
   const rmBtn = tr.querySelector('.row-rm');
@@ -873,23 +912,27 @@ function wireActionRow(tr){
     } else {
       tr.querySelectorAll('textarea, input').forEach(el=> el.value = '');
     }
+    if(tbody.children.length === 0){
+      const newTr = document.createElement('tr');
+      newTr.innerHTML = actionRowTemplate;
+      tbody.appendChild(newTr);
+      wireActionRow(newTr);
+    }
     scheduleSave();
   });
   tr.querySelectorAll('textarea, input').forEach(el=>{
     el.addEventListener('input', scheduleSave);
+    el.addEventListener('change', scheduleSave);
   });
+  const dateWrap = tr.querySelector('.date-wrap');
+  if(dateWrap) wireDateWrap(dateWrap);
 }
 document.querySelectorAll('#actionsBody tr').forEach(wireActionRow);
 
 document.getElementById('addRowBtn').addEventListener('click', ()=>{
   const tbody = document.getElementById('actionsBody');
   const tr = document.createElement('tr');
-  tr.innerHTML = `
-    <td><textarea class="action-input" placeholder="Décrire l'action à mener"></textarea></td>
-    <td><input type="text" class="delai-input" placeholder="Ex : 1 semaine"></td>
-    <td><input type="text" class="qui-input" placeholder="Nom"></td>
-    <td class="rm-cell"><button type="button" class="row-rm" title="Supprimer la ligne">×</button></td>
-  `;
+  tr.innerHTML = actionRowTemplate;
   tbody.appendChild(tr);
   wireActionRow(tr);
   scheduleSave();
@@ -1058,11 +1101,19 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
   });
 
   // ---------- Tableau Actions à mener ----------
-  const actionRows = Array.from(document.querySelectorAll('#actionsBody tr')).map(tr=>({
-    action: tr.querySelector('.action-input').value.trim(),
-    delai: tr.querySelector('.delai-input').value.trim(),
-    qui: tr.querySelector('.qui-input').value.trim()
-  })).filter(r=> r.action || r.delai || r.qui);
+  const actionRows = Array.from(document.querySelectorAll('#actionsBody tr')).map(tr=>{
+    const rawDelai = tr.querySelector('.delai-input').value.trim();
+    let delaiFormatted = '';
+    if(rawDelai){
+      const [dy,dm,dd] = rawDelai.split('-');
+      delaiFormatted = `${dd}/${dm}/${dy}`;
+    }
+    return {
+      action: tr.querySelector('.action-input').value.trim(),
+      delai: delaiFormatted,
+      qui: tr.querySelector('.qui-input').value.trim()
+    };
+  }).filter(r=> r.action || r.delai || r.qui);
 
   checkPage(40);
   y_ += 10;
