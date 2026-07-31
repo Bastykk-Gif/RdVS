@@ -42,25 +42,30 @@
     border-bottom:3px solid var(--navy);
     padding-bottom:18px;
     margin-bottom:26px;
-    flex-wrap:wrap;
+    flex-wrap:nowrap;
   }
   header.top .logo-mark{flex-shrink:0;}
   header.top .titles{
     display:flex;
     flex-direction:column;
-    margin-left:auto;
+    min-width:0;
+    flex:1 1 auto;
   }
   header.top .brand{
     font-family:var(--font-heavy);
     font-weight:900;
-    font-size:clamp(22px,6vw,32px);
+    font-size:clamp(15px,4vw,32px);
     color:var(--amber);
     letter-spacing:-0.3px;
-    line-height:1.1;
+    line-height:1.15;
     background:var(--navy);
     padding:10px 20px;
     border-radius:10px;
     text-align:right;
+    overflow-wrap:break-word;
+    width:fit-content;
+    max-width:100%;
+    margin-left:auto;
   }
   header.top .sub{
     font-family:var(--font-mono);
@@ -259,7 +264,20 @@
   }
   .item.numeric .side{flex:1; min-width:200px;}
 
-  /* Zone photos */
+  .item-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:8px;
+  }
+  .item-head label{margin-bottom:0;}
+  .item-head .media-add{
+    width:34px;
+    height:34px;
+  }
+  .item-head .media-add svg{width:18px;height:18px;}
+
   .media-row{
     display:flex;
     flex-wrap:wrap;
@@ -437,6 +455,13 @@
     margin-top:10px;
   }
 
+  @media (max-width:480px){
+    header.top{flex-wrap:wrap;}
+    header.top .titles{flex:1 1 100%;}
+    header.top .brand{text-align:left; margin-left:0; width:100%;}
+    header.top .logo-mark{margin-left:0;}
+  }
+
   @media (max-width:640px){
     .wrap{padding:20px 14px 80px;}
     .infocard-grid{grid-template-columns:1fr;}
@@ -455,7 +480,6 @@
     </div>
     <div class="titles">
       <div class="brand">Rapport de visite de site</div>
-    </div>
   </header>
 
   <!-- INFOS -->
@@ -516,7 +540,7 @@
         <textarea placeholder="Commentaires"></textarea>
       </div>
 
-      <div class="part-header"><h2>Bad</h2></div>
+      <div class="part-header"><h2>Retards de paiements et contentieux</h2></div>
       <div class="item" data-field="bad_suivi">
         <label>Contrôle du suivi (clients relancés)</label>
         <textarea placeholder="Commentaires"></textarea>
@@ -790,10 +814,11 @@ function buildMediaUI(item){
   const key = item.dataset.field;
   photoStore[key] = [];
 
-  const row = document.createElement('div');
-  row.className = 'media-row';
+  const label = item.querySelector(':scope > label');
 
-  // Label englobant l'input file : plus fiable sur mobile (Safari/Chrome Android)
+  const headRow = document.createElement('div');
+  headRow.className = 'item-head';
+
   const addLabel = document.createElement('label');
   addLabel.className = 'media-add';
   addLabel.title = "Prendre une photo ou choisir dans la galerie";
@@ -809,6 +834,17 @@ function buildMediaUI(item){
   fileInput.style.overflow = 'hidden';
 
   addLabel.appendChild(fileInput);
+
+  if(label){
+    label.parentNode.insertBefore(headRow, label);
+    headRow.appendChild(label);
+  } else {
+    item.insertBefore(headRow, item.firstChild);
+  }
+  headRow.appendChild(addLabel);
+
+  const thumbsRow = document.createElement('div');
+  thumbsRow.className = 'media-row';
 
   fileInput.addEventListener('change', ()=>{
     const file = fileInput.files[0];
@@ -829,7 +865,7 @@ function buildMediaUI(item){
   });
 
   function renderThumbs(){
-    row.querySelectorAll('.media-thumb').forEach(el=>el.remove());
+    thumbsRow.innerHTML = '';
     photoStore[key].forEach((photo, idx)=>{
       const thumb = document.createElement('div');
       thumb.className = 'media-thumb';
@@ -846,13 +882,14 @@ function buildMediaUI(item){
       });
       thumb.appendChild(im);
       thumb.appendChild(rm);
-      row.insertBefore(thumb, addLabel);
+      thumbsRow.appendChild(thumb);
     });
+    thumbsRow.style.display = photoStore[key].length ? 'flex' : 'none';
   }
+  thumbsRow.style.display = 'none';
   item._renderThumbs = renderThumbs;
 
-  row.appendChild(addLabel);
-  item.appendChild(row);
+  item.appendChild(thumbsRow);
 }
 
 const noPhotoFields = ['com_leads','com_coaching','bad_suivi','bad_cas','google_avis'];
@@ -972,7 +1009,7 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
         ["Étude et appels des leads « Besoin < 1 semaine »","com_leads"],
         ["Coaching (écoute Aircall)","com_coaching"]
       ]},
-      {title:"Bad", items:[
+      {title:"Retards de paiements et contentieux", items:[
         ["Contrôle du suivi (clients relancés)","bad_suivi"],
         ["Discussion sur les cas particuliers","bad_cas"],
         ["Préparation et suivi des inventaires","bad_inventaires"]
