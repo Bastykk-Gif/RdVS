@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rapport de visite de site — Lockall</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --navy:#152A4E;
+    --amber:#F0A400;
+    --amber-soft:#FDEFD3;
+    --paper:#F5F6F8;
+    --card:#FFFFFF;
+    --line:#E1E4EA;
+    --ink:#1B2436;
+    --ink-soft:#5B6472;
+    --gray-off:#9AA1AC;
+    --font-display: 'Iowan Old Style', 'Georgia', serif;
+    --font-heavy: 'Arial Black', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    --font-mono: 'SF Mono', 'Consolas', monospace;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    font-family:var(--font-body);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{
+    max-width:880px;
+    margin:0 auto;
+    padding:28px 20px 90px;
+  }
+
+  header.top{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    border-bottom:3px solid var(--navy);
+    padding-bottom:18px;
+    margin-bottom:26px;
+    flex-wrap:wrap;
+  }
+  header.top .logo-mark{flex-shrink:0;}
+  header.top .titles{display:flex; flex-direction:column;}
+  header.top .brand{
+    font-family:var(--font-display);
+    font-size:clamp(19px,5vw,26px);
+    color:var(--navy);
+    letter-spacing:0.2px;
+    line-height:1.15;
+  }
+  header.top .sub{
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:1.2px;
+    color:var(--ink-soft);
+    margin-top:4px;
+  }
+
+  /* Cadre bleu Lockall commun (Infos / Business / Bâtiment) */
+  .major-block{
+    background:var(--navy);
+    border-radius:16px;
+    padding:22px;
+    margin:28px 0;
+  }
+  .major-block h1{
+    font-family:var(--font-heavy);
+    font-weight:900;
+    text-transform:uppercase;
+    font-size:clamp(22px,6vw,32px);
+    letter-spacing:1px;
+    color:var(--amber);
+    margin:0 0 18px;
+  }
+  .major-inner{
+    background:var(--card);
+    border-radius:12px;
+    padding:18px 18px 6px;
+  }
+
+  /* Encart Infos */
+  .infocard-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:20px;
+    padding-bottom:14px;
+  }
+  .infocard-grid label{
+    display:block;
+    font-size:15px;
+    font-weight:600;
+    color:var(--navy);
+    margin-bottom:8px;
+  }
+  .infocard-grid input[type=date]{
+    width:100%;
+    border:none;
+    border-bottom:1px solid var(--line);
+    background:transparent;
+    font-family:var(--font-body);
+    font-size:16px;
+    color:var(--ink);
+    padding:4px 2px 8px 26px;
+  }
+  .date-wrap{position:relative;}
+  .date-wrap .cal-icon{
+    position:absolute;
+    left:0;
+    top:50%;
+    transform:translateY(-30%);
+    pointer-events:none;
+  }
+  .infocard-grid input[type=date]::-webkit-calendar-picker-indicator{
+    position:absolute;
+    left:0; top:0;
+    width:100%; height:100%;
+    margin:0; padding:0;
+    opacity:0;
+    cursor:pointer;
+  }
+  .infocard-grid select,
+  .infocard-grid input[type=text],
+  .infocard-grid textarea{
+    width:100%;
+    border:none;
+    border-bottom:1px solid var(--line);
+    background:transparent;
+    font-family:var(--font-body);
+    font-size:16px;
+    color:var(--ink);
+    padding:4px 2px 8px;
+  }
+  .infocard-grid textarea{resize:vertical; min-height:44px; line-height:1.4;}
+  .infocard-grid select{cursor:pointer;}
+  .infocard-grid input:focus,.infocard-grid select:focus,.infocard-grid textarea:focus{outline:none;border-bottom-color:var(--amber);}
+  .full-row{grid-column:1 / -1;}
+
+  /* Sous-parties : sous-titres mis en avant */
+  .part-header{
+    margin:10px 0 14px;
+  }
+  .part-header h2{
+    font-family:var(--font-body);
+    font-size:16.5px;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:0.6px;
+    margin:0;
+    color:var(--navy);
+    border-left:5px solid var(--amber);
+    padding:6px 0 6px 12px;
+    background:var(--amber-soft);
+    border-radius:0 6px 6px 0;
+  }
+
+  .item{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-left:3px solid var(--line);
+    border-radius:8px;
+    padding:12px 16px;
+    margin-bottom:10px;
+    transition:border-left-color .15s ease, opacity .15s ease;
+  }
+  .item.filled{border-left-color:var(--amber);}
+  .item-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:6px;
+  }
+  .item label{
+    display:block;
+    font-size:14.5px;
+    font-weight:600;
+  }
+  .item textarea{
+    width:100%;
+    border:none;
+    resize:vertical;
+    min-height:44px;
+    font-family:var(--font-body);
+    font-size:14px;
+    color:var(--ink);
+    background:transparent;
+    padding:0;
+    line-height:1.45;
+  }
+  .item textarea:focus{outline:none;}
+  .item textarea:disabled{
+    color:var(--gray-off);
+    font-style:italic;
+  }
+  .item.ras{background:#FAFAFA;}
+  .item.ras textarea{opacity:0.65;}
+
+  .ras-btn{
+    flex-shrink:0;
+    font-family:var(--font-mono);
+    font-size:10.5px;
+    letter-spacing:0.8px;
+    text-transform:uppercase;
+    border:1px solid var(--line);
+    background:var(--card);
+    color:var(--ink-soft);
+    padding:5px 12px;
+    border-radius:20px;
+    cursor:pointer;
+    transition:all .15s ease;
+  }
+  .ras-btn:hover{border-color:var(--navy); color:var(--navy);}
+  .ras-btn.active{
+    background:var(--navy);
+    border-color:var(--navy);
+    color:#fff;
+  }
+
+  .item.numeric{display:flex; align-items:flex-start; gap:14px; flex-wrap:wrap;}
+  .item.numeric .num-input{width:70px; flex-shrink:0;}
+  .item.numeric input[type=number]{
+    width:100%;
+    border:none;
+    border-bottom:1px solid var(--line);
+    background:transparent;
+    font-size:22px;
+    font-family:var(--font-mono);
+    color:var(--amber);
+    padding:2px 0;
+  }
+  .item.numeric input[type=number]:focus{outline:none;border-bottom-color:var(--navy);}
+  .item.numeric .num-input span{
+    display:block;
+    font-family:var(--font-mono);
+    font-size:9.5px;
+    color:var(--ink-soft);
+    text-transform:uppercase;
+    letter-spacing:1px;
+    margin-top:4px;
+  }
+  .item.numeric .side{flex:1; min-width:200px;}
+
+  /* Zone photos */
+  .media-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:10px;
+    align-items:center;
+  }
+  .media-thumb{
+    position:relative;
+    width:48px;
+    height:48px;
+    border-radius:8px;
+    overflow:hidden;
+    border:1px solid var(--line);
+    flex-shrink:0;
+  }
+  .media-thumb img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+  }
+  .media-thumb .rm{
+    position:absolute;
+    top:0; right:0;
+    width:16px;height:16px;
+    background:rgba(21,42,78,0.85);
+    color:#fff;
+    border:none;
+    font-size:10px;
+    line-height:16px;
+    text-align:center;
+    cursor:pointer;
+    border-radius:0 0 0 6px;
+    padding:0;
+  }
+  .media-add{
+    width:48px;
+    height:48px;
+    flex-shrink:0;
+    border:1.5px dashed var(--line);
+    border-radius:8px;
+    background:transparent;
+    color:var(--navy);
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .media-add:hover{border-color:var(--amber); background:var(--amber-soft);}
+  .media-add svg{width:20px;height:20px;}
+
+  .export-bar{
+    display:flex;
+    justify-content:center;
+    margin-top:44px;
+  }
+  #exportBtn{
+    font-family:var(--font-mono);
+    text-transform:uppercase;
+    letter-spacing:1.5px;
+    font-size:12.5px;
+    background:var(--navy);
+    color:#fff;
+    border:none;
+    padding:15px 30px;
+    border-radius:40px;
+    cursor:pointer;
+    transition:transform .12s ease, background .15s ease;
+    width:100%;
+    max-width:360px;
+  }
+  #exportBtn:hover{background:var(--amber); color:var(--navy); transform:translateY(-1px);}
+  #exportBtn:active{transform:translateY(0);}
+  .status{
+    text-align:center;
+    font-family:var(--font-mono);
+    font-size:11px;
+    color:var(--ink-soft);
+    margin-top:10px;
+  }
+
+  @media (max-width:640px){
+    .wrap{padding:20px 14px 80px;}
+    .infocard-grid{grid-template-columns:1fr;}
+    .major-block{padding:16px;}
+    .major-inner{padding:14px 14px 4px;}
+    .item.numeric{flex-direction:column;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="logo-mark">
+      <svg width="46" height="46" viewBox="0 0 46 46" xmlns="http://www.w3.org/2000/svg">
+        <rect x="1" y="1" width="44" height="44" rx="12" fill="#152A4E"/>
+        <path d="M23 12a7 7 0 0 0-7 7v4h-1.5a1.5 1.5 0 0 0-1.5 1.5v9A1.5 1.5 0 0 0 14.5 35h17a1.5 1.5 0 0 0 1.5-1.5v-9a1.5 1.5 0 0 0-1.5-1.5H30v-4a7 7 0 0 0-7-7Zm0 3a4 4 0 0 1 4 4v4h-8v-4a4 4 0 0 1 4-4Z" fill="#F0A400"/>
+        <circle cx="23" cy="27.5" r="2.1" fill="#152A4E"/>
+      </svg>
+    </div>
+    <div class="titles">
+      <div class="brand">Rapport de visite de site</div>
+      <div class="sub">LOCKALL</div>
+    </div>
+  </header>
+
+  <!-- INFOS -->
+  <div class="major-block">
+    <h1>Infos</h1>
+    <div class="major-inner">
+      <div class="infocard-grid">
+        <div>
+          <label for="visitDate">Date de la visite</label>
+          <div class="date-wrap">
+            <input type="date" id="visitDate">
+            <svg class="cal-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="3" y="4.5" width="18" height="16" rx="2.5" stroke="#152A4E" stroke-width="1.6"/>
+              <path d="M3 9.5H21" stroke="#152A4E" stroke-width="1.6"/>
+              <path d="M8 2.5V6.5" stroke="#152A4E" stroke-width="1.6" stroke-linecap="round"/>
+              <path d="M16 2.5V6.5" stroke="#152A4E" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+          </div>
+        </div>
+        <div>
+          <label for="siteSelect">Site</label>
+          <select id="siteSelect">
+            <option value="">— Sélectionner —</option>
+            <option>Argenteuil</option>
+            <option>Cergy</option>
+            <option>Suresnes</option>
+            <option>Paris 8</option>
+            <option>Paris 13</option>
+            <option>Lognes</option>
+            <option>Poissy</option>
+            <option>Vélizy</option>
+          </select>
+        </div>
+        <div class="full-row">
+          <label for="managerInput">Manager réalisant la visite</label>
+          <input type="text" id="managerInput" placeholder="Nom du manager">
+        </div>
+        <div class="full-row">
+          <label for="teamInput">Équipe</label>
+          <textarea id="teamInput" placeholder="Noms de l'équipe présente"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PARTIE 1 : BUSINESS -->
+  <div class="major-block">
+    <h1>Business</h1>
+    <div class="major-inner">
+
+      <div class="part-header"><h2>Commerce</h2></div>
+      <div class="item" data-field="com_leads">
+        <label>Étude et appels des leads « Besoin &lt; 1 semaine »</label>
+        <textarea placeholder="Commentaires"></textarea>
+      </div>
+      <div class="item" data-field="com_coaching">
+        <label>Coaching (écoute Aircall)</label>
+        <textarea placeholder="Commentaires"></textarea>
+      </div>
+
+      <div class="part-header"><h2>Bad</h2></div>
+      <div class="item" data-field="bad_suivi">
+        <label>Contrôle du suivi (clients relancés)</label>
+        <textarea placeholder="Commentaires"></textarea>
+      </div>
+      <div class="item" data-field="bad_cas">
+        <label>Discussion sur les cas particuliers</label>
+        <textarea placeholder="Commentaires"></textarea>
+      </div>
+      <div class="item ras-item" data-field="bad_inventaires">
+        <div class="item-row">
+          <label>Préparation et suivi des inventaires</label>
+          <button type="button" class="ras-btn">RAS</button>
+        </div>
+        <textarea placeholder="Avancement, écarts, actions à mener..."></textarea>
+      </div>
+
+      <div class="part-header"><h2>Avis Google</h2></div>
+      <div class="item numeric" data-field="google_avis">
+        <div class="num-input">
+          <input type="number" min="0" id="googleCount" placeholder="0">
+          <span>Avis</span>
+        </div>
+        <div class="side">
+          <label>Combien d'avis « il y a 1 mois » à aujourd'hui sur Google Maps ?</label>
+          <textarea placeholder="Commentaires"></textarea>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- PARTIE 2 : BATIMENT -->
+  <div class="major-block">
+    <h1>Bâtiment</h1>
+    <div class="major-inner">
+
+      <div class="part-header"><h2>Intérieur</h2></div>
+      <div class="item ras-item" data-field="int_livraison">
+        <div class="item-row"><label>Zone livraison</label><button type="button" class="ras-btn">RAS</button></div>
+        <textarea placeholder="État, organisation, accès..."></textarea>
+      </div>
+      <div class="item ras-item" data-field="int_couloirs">
+        <div class="item-row"><label>Couloirs</label><button type="button" class="ras-btn">RAS</button></div>
+        <textarea placeholder="Propreté, éclairage, encombrement..."></textarea>
+      </div>
+      <div class="item ras-item" data-field="int_communautaire">
+        <div class="item-row"><label>Zone communautaire (salle de déjeuner)</label><button type="button" class="ras-btn">RAS</button></div>
+        <textarea placeholder="Propreté, équipements..."></textarea>
+      </div>
+      <div class="item ras-item" data-field="int_sanitaires">
+        <div class="item-row"><label>Sanitaire clients</label><button type="button" class="ras-btn">RAS</button></div>
+        <textarea placeholder="Propreté, fonctionnement, consommables..."></textarea>
+      </div>
+      <div class="item" data-field="int_divers">
+        <label>Divers Intérieur</label>
+        <textarea placeholder="Tout autre point à signaler..."></textarea>
+      </div>
+
+      <div class="part-header"><h2>Extérieur</h2></div>
+      <div class="item ras-item" data-field="ext_parking">
+        <div class="item-row"><label>Parking</label><button type="button" class="ras-btn">RAS</button></div>
+        <textarea placeholder="État..."></textarea>
+      </div>
+      <div class="item ras-item" data-field="ext_murs">
+        <div class="item-row"><label>Murs, façades et grillages</label><button type="button" class="ras-btn">RAS</button></div>
+        <textarea placeholder="État général, dégradations, sécurité..."></textarea>
+      </div>
+      <div class="item" data-field="ext_divers">
+        <label>Divers Extérieur</label>
+        <textarea placeholder="Tout autre point à signaler..."></textarea>
+      </div>
+
+      <div class="part-header"><h2>Accueil</h2></div>
+      <div class="item ras-item" data-field="acc_bureaux">
+        <div class="item-row"><label>Bureaux staff</label><button type="button" class="ras-btn">RAS</button></div>
+        <textarea placeholder="Rangement, tenue de l'espace..."></textarea>
+      </div>
+      <div class="item ras-item" data-field="acc_salon">
+        <div class="item-row"><label>Salon &amp; marchandises</label><button type="button" class="ras-btn">RAS</button></div>
+        <textarea placeholder="Présentation, stock, étiquetage..."></textarea>
+      </div>
+      <div class="item ras-item" data-field="acc_ecran">
+        <div class="item-row"><label>Écran TV</label><button type="button" class="ras-btn">RAS</button></div>
+        <textarea placeholder="Fonctionnement, contenu diffusé..."></textarea>
+      </div>
+      <div class="item ras-item" data-field="acc_cuisine">
+        <div class="item-row"><label>Espace cuisine</label><button type="button" class="ras-btn">RAS</button></div>
+        <textarea placeholder="Propreté, équipements, stock..."></textarea>
+      </div>
+      <div class="item" data-field="acc_divers">
+        <label>Divers Accueil</label>
+        <textarea placeholder="Tout autre point à signaler..."></textarea>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="export-bar">
+    <button id="exportBtn">Valider et exporter en PDF</button>
+  </div>
+  <div class="status" id="statusMsg"></div>
+
+</div>
+
+<script>
+// Stockage des photos par champ : { fieldKey: [ {dataUrl, w, h} ] }
+const photoStore = {};
+
+const cameraIconSVG = `
+<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1-1.5h7l1 1.5h2A1.5 1.5 0 0 1 20 8.5v9A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5v-9Z" stroke="#152A4E" stroke-width="1.5" stroke-linejoin="round"/>
+  <circle cx="12" cy="13" r="3.2" stroke="#152A4E" stroke-width="1.5"/>
+  <path d="M12 9.8V7.5M13.15 8.65h2.3" stroke="#F0A400" stroke-width="1.6" stroke-linecap="round"/>
+</svg>`;
+
+function buildMediaUI(item){
+  const key = item.dataset.field;
+  photoStore[key] = [];
+
+  const row = document.createElement('div');
+  row.className = 'media-row';
+
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'media-add';
+  addBtn.innerHTML = cameraIconSVG;
+  addBtn.title = "Ajouter une photo";
+
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = 'image/*';
+  fileInput.style.display = 'none';
+
+  addBtn.addEventListener('click', ()=> fileInput.click());
+
+  fileInput.addEventListener('change', ()=>{
+    const file = fileInput.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      const img = new Image();
+      img.onload = ()=>{
+        photoStore[key].push({dataUrl:e.target.result, w:img.naturalWidth, h:img.naturalHeight});
+        renderThumbs();
+        item.classList.add('filled');
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+    fileInput.value = '';
+  });
+
+  function renderThumbs(){
+    row.querySelectorAll('.media-thumb').forEach(el=>el.remove());
+    photoStore[key].forEach((photo, idx)=>{
+      const thumb = document.createElement('div');
+      thumb.className = 'media-thumb';
+      const im = document.createElement('img');
+      im.src = photo.dataUrl;
+      const rm = document.createElement('button');
+      rm.type = 'button';
+      rm.className = 'rm';
+      rm.textContent = '×';
+      rm.addEventListener('click', ()=>{
+        photoStore[key].splice(idx,1);
+        renderThumbs();
+      });
+      thumb.appendChild(im);
+      thumb.appendChild(rm);
+      row.insertBefore(thumb, addBtn);
+    });
+  }
+
+  row.appendChild(addBtn);
+  row.appendChild(fileInput);
+  item.appendChild(row);
+}
+
+const noPhotoFields = ['com_leads','com_coaching','bad_suivi','bad_cas','google_avis'];
+document.querySelectorAll('.date-wrap').forEach(wrap=>{
+  const input = wrap.querySelector('input[type=date]');
+  wrap.addEventListener('click', ()=>{
+    if(typeof input.showPicker === 'function'){
+      try{ input.showPicker(); }catch(e){}
+    }
+  });
+});
+
+  if(!noPhotoFields.includes(item.dataset.field)) buildMediaUI(item);
+});
+
+document.querySelectorAll('.item textarea').forEach(t=>{
+  t.addEventListener('input', ()=>{
+    t.closest('.item').classList.toggle('filled', t.value.trim().length>0);
+  });
+});
+
+document.querySelectorAll('.ras-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const item = btn.closest('.item');
+    const textarea = item.querySelector('textarea');
+    const active = btn.classList.toggle('active');
+    item.classList.toggle('ras', active);
+    if(active){
+      textarea.dataset.prev = textarea.value;
+      textarea.value = 'RAS';
+      textarea.disabled = true;
+      item.classList.add('filled');
+    } else {
+      textarea.disabled = false;
+      textarea.value = textarea.dataset.prev || '';
+      item.classList.toggle('filled', textarea.value.trim().length>0 || photoStore[item.dataset.field].length>0);
+    }
+  });
+});
+
+document.getElementById('exportBtn').addEventListener('click', async ()=>{
+  const status = document.getElementById('statusMsg');
+  const dateVal = document.getElementById('visitDate').value;
+  const site = document.getElementById('siteSelect').value;
+
+  if(!dateVal || !site){
+    status.textContent = "Merci de renseigner la date et le site avant l'export.";
+    status.style.color = '#B4732B';
+    return;
+  }
+
+  const [y,m,d] = dateVal.split('-');
+  const fileDate = `${y}${m}${d}`;
+  const fileName = `${fileDate} - ${site}.pdf`;
+
+  const manager = document.getElementById('managerInput').value.trim();
+  const team = document.getElementById('teamInput').value.trim();
+
+  const sections = [
+    {major:"Business", parts:[
+      {title:"Commerce", items:[
+        ["Étude et appels des leads « Besoin < 1 semaine »","com_leads"],
+        ["Coaching (écoute Aircall)","com_coaching"]
+      ]},
+      {title:"Bad", items:[
+        ["Contrôle du suivi (clients relancés)","bad_suivi"],
+        ["Discussion sur les cas particuliers","bad_cas"],
+        ["Préparation et suivi des inventaires","bad_inventaires"]
+      ]},
+      {title:"Avis Google", items:[
+        ["Avis « il y a 1 mois » à aujourd'hui","google_avis"]
+      ]}
+    ]},
+    {major:"Bâtiment", parts:[
+      {title:"Intérieur", items:[
+        ["Zone livraison","int_livraison"],
+        ["Couloirs","int_couloirs"],
+        ["Zone communautaire (salle de déjeuner)","int_communautaire"],
+        ["Sanitaire clients","int_sanitaires"],
+        ["Divers Intérieur","int_divers"]
+      ]},
+      {title:"Extérieur", items:[
+        ["Parking","ext_parking"],
+        ["Murs, façades et grillages","ext_murs"],
+        ["Divers Extérieur","ext_divers"]
+      ]},
+      {title:"Accueil", items:[
+        ["Bureaux staff","acc_bureaux"],
+        ["Salon & marchandises","acc_salon"],
+        ["Écran TV","acc_ecran"],
+        ["Espace cuisine","acc_cuisine"],
+        ["Divers Accueil","acc_divers"]
+      ]}
+    ]}
+  ];
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'pt', format:'a4'});
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const marginX = 48;
+  const bottomLimit = pageH - 50;
+  let y_ = 56;
+
+  function checkPage(needed){
+    if(y_ + needed > bottomLimit){ doc.addPage(); y_ = 56; }
+  }
+
+  doc.setTextColor(21,42,78);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(17);
+  doc.text('Rapport de visite de site — Lockall', marginX, y_);
+  y_ += 22;
+  doc.setDrawColor(21,42,78);
+  doc.line(marginX, y_, pageW-marginX, y_);
+  y_ += 22;
+
+  doc.setTextColor(0,0,0);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(11);
+  doc.text(`Date : ${d}/${m}/${y}`, marginX, y_);
+  doc.text(`Site : ${site}`, marginX+220, y_);
+  y_ += 18;
+  doc.text(`Manager : ${manager || '—'}`, marginX, y_);
+  y_ += 18;
+  doc.text(`Équipe : ${team || '—'}`, marginX, y_);
+  y_ += 26;
+
+  const imgMaxW = 220;
+  const imgGap = 10;
+
+  function writeImages(fieldKey){
+    const photos = photoStore[fieldKey] || [];
+    if(!photos.length) return;
+    let x_ = marginX;
+    let rowH = 0;
+    photos.forEach((p, i)=>{
+      const w = Math.min(imgMaxW, p.w);
+      const h = w * (p.h / p.w);
+      if(x_ + w > pageW - marginX){
+        x_ = marginX;
+        y_ += rowH + imgGap;
+        rowH = 0;
+      }
+      checkPage(h + imgGap);
+      const fmt = p.dataUrl.substring(p.dataUrl.indexOf('/')+1, p.dataUrl.indexOf(';')).toUpperCase();
+      doc.addImage(p.dataUrl, fmt === 'JPEG' || fmt === 'JPG' ? 'JPEG' : 'PNG', x_, y_, w, h);
+      x_ += w + imgGap;
+      rowH = Math.max(rowH, h);
+    });
+    y_ += rowH + 14;
+  }
+
+  function writeItem(label, fieldKey){
+    const el = document.querySelector(`.item[data-field="${fieldKey}"] textarea`);
+    const text = (el ? el.value.trim() : '') || '—';
+    let displayLabel = label;
+    if(fieldKey === 'google_avis'){
+      const googleCount = document.getElementById('googleCount').value || '0';
+      displayLabel = `${label}  (${googleCount} avis)`;
+    }
+    checkPage(40);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(11.5);
+    doc.setTextColor(0,0,0);
+    doc.text(displayLabel, marginX, y_);
+    y_ += 15;
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(10.5);
+    const lines = doc.splitTextToSize(text, pageW - marginX*2);
+    checkPage(lines.length*13 + 10);
+    doc.text(lines, marginX, y_);
+    y_ += lines.length*13 + 8;
+    writeImages(fieldKey);
+  }
+
+  sections.forEach(major=>{
+    checkPage(34);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(15);
+    doc.setTextColor(21,42,78);
+    doc.text(major.major, marginX, y_);
+    y_ += 8;
+    doc.setDrawColor(240,164,0);
+    doc.setLineWidth(2);
+    doc.line(marginX, y_, marginX+40, y_);
+    doc.setLineWidth(1);
+    y_ += 18;
+
+    major.parts.forEach(part=>{
+      checkPage(26);
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(12.5);
+      doc.setTextColor(60,60,60);
+      doc.text(part.title, marginX, y_);
+      doc.setTextColor(0,0,0);
+      y_ += 16;
+      part.items.forEach(([label,key])=> writeItem(label,key));
+      y_ += 4;
+    });
+  });
+
+  doc.save(fileName);
+  status.style.color = '#152A4E';
+  status.textContent = `Exporté : ${fileName}`;
+});
+</script>
+</body>
+</html>
