@@ -965,9 +965,6 @@ document.querySelectorAll('.ras-btn').forEach(btn=>{
   });
 });
 
-// ---------- Restauration du brouillon ----------
-restoreState();
-
 // ---------- Remise à zéro du formulaire ----------
 document.getElementById('resetBtn').addEventListener('click', ()=>{
   const ok = window.confirm("Êtes-vous sûr de vouloir effacer tout le contenu du formulaire ?");
@@ -1066,6 +1063,10 @@ document.getElementById('addRowBtn').addEventListener('click', ()=>{
   wireActionRow(tr);
   scheduleSave();
 });
+
+// ---------- Restauration du brouillon ----------
+restoreState();
+
 
 document.getElementById('exportBtn').addEventListener('click', async ()=>{
   const status = document.getElementById('statusMsg');
