@@ -425,6 +425,29 @@
   }
   .add-row-btn:hover{border-color:var(--amber); background:var(--amber-soft);}
 
+  .reset-bar{
+    display:flex;
+    justify-content:flex-end;
+    margin-bottom:16px;
+  }
+  #resetBtn{
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:0.6px;
+    text-transform:uppercase;
+    background:transparent;
+    color:#B4732B;
+    border:1.5px solid #B4732B;
+    padding:8px 16px;
+    border-radius:20px;
+    cursor:pointer;
+    transition:all .15s ease;
+  }
+  #resetBtn:hover{background:#B4732B; color:#fff;}
+  @media print{
+    .reset-bar{display:none !important;}
+  }
+
   .export-bar{
     display:flex;
     justify-content:center;
@@ -480,7 +503,12 @@
     </div>
     <div class="titles">
       <div class="brand">Rapport de visite de site</div>
+    </div>
   </header>
+
+  <div class="reset-bar">
+    <button type="button" id="resetBtn">Remise à zéro du formulaire</button>
+  </div>
 
   <!-- INFOS -->
   <div class="major-block">
@@ -621,10 +649,10 @@
       </div>
 
       <div class="part-header"><h2>Accueil</h2></div>
-      <div class="item ras-item filled" data-field="acc_classeur">
+      <div class="item ras-item" data-field="acc_classeur">
         <label>Classeur bleu</label>
         <button type="button" class="ras-btn">RAS</button>
-        <textarea placeholder="Commentaires">Contrôle des dernières checklist quotidienne, du tableau des KPI mensuels, documents d'infos site...</textarea>
+        <textarea placeholder="Contrôle des dernières checklist quotidienne, du tableau des KPI mensuels, documents d'infos site..."></textarea>
       </div>
       <div class="item ras-item" data-field="acc_bureaux">
         <label>Bureaux staff</label>
@@ -939,6 +967,53 @@ document.querySelectorAll('.ras-btn').forEach(btn=>{
 
 // ---------- Restauration du brouillon ----------
 restoreState();
+
+// ---------- Remise à zéro du formulaire ----------
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  const ok = window.confirm("Êtes-vous sûr de vouloir effacer tout le contenu du formulaire ?");
+  if(!ok) return;
+
+  // Champs Infos
+  document.getElementById('visitDate').value = '';
+  document.getElementById('siteSelect').value = '';
+  document.getElementById('managerInput').value = '';
+  document.getElementById('teamInput').value = '';
+
+  // Champs de chaque item + RAS + photos
+  document.querySelectorAll('.item[data-field]').forEach(item=>{
+    const key = item.dataset.field;
+    const textarea = item.querySelector('textarea');
+    const rasBtn = item.querySelector('.ras-btn');
+    if(rasBtn){
+      rasBtn.classList.remove('active');
+      item.classList.remove('ras');
+    }
+    if(textarea){
+      textarea.disabled = false;
+      textarea.value = '';
+      delete textarea.dataset.prev;
+    }
+    if(photoStore[key]){
+      photoStore[key] = [];
+      if(item._renderThumbs) item._renderThumbs();
+    }
+    item.classList.remove('filled');
+  });
+
+  // Tableau Actions à mener : retour à une seule ligne vierge
+  const tbody = document.getElementById('actionsBody');
+  tbody.innerHTML = '';
+  const tr = document.createElement('tr');
+  tr.innerHTML = actionRowTemplate;
+  tbody.appendChild(tr);
+  wireActionRow(tr);
+
+  try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
+
+  const status = document.getElementById('statusMsg');
+  status.style.color = '#5B6472';
+  status.textContent = "Formulaire réinitialisé.";
+});
 
 const actionRowTemplate = `
   <td><textarea class="action-input" placeholder="Décrire l'action à mener"></textarea></td>
