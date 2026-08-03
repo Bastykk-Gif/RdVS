@@ -975,6 +975,7 @@ document.getElementById('resetBtn').addEventListener('click', ()=>{
   document.getElementById('siteSelect').value = '';
   document.getElementById('managerInput').value = '';
   document.getElementById('teamInput').value = '';
+  document.getElementById('googleCount').value = '';
 
   // Champs de chaque item + RAS + photos
   document.querySelectorAll('.item[data-field]').forEach(item=>{
@@ -1163,9 +1164,11 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
     const lw = doc.getTextWidth(labelText);
     doc.setFont('helvetica','italic');
     doc.setTextColor(ANSWER_COLOR[0],ANSWER_COLOR[1],ANSWER_COLOR[2]);
-    doc.text(value || '—', marginX + xOffset + lw + 3, y_);
+    const lines = doc.splitTextToSize(value || '—', pageW - marginX*2 - xOffset - lw - 3);
+    doc.text(lines, marginX + xOffset + lw + 3, y_);
     doc.setFont('helvetica','normal');
     doc.setTextColor(0,0,0);
+    return lines.length;
   }
 
   doc.setTextColor(NAVY[0],NAVY[1],NAVY[2]);
@@ -1185,10 +1188,10 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
   doc.text(`Date : ${d}/${m}/${y}`, marginX, y_);
   doc.text(`Site : ${site}`, marginX+220, y_);
   y_ += 18;
-  labelWithAnswer('Manager :', manager, 0);
-  y_ += 18;
-  labelWithAnswer('Équipe :', team, 0);
-  y_ += 30;
+  const managerLines = labelWithAnswer('Manager :', manager, 0);
+  y_ += managerLines*13 + 5;
+  const teamLines = labelWithAnswer('Équipe :', team, 0);
+  y_ += teamLines*13 + 20;
 
   const imgMaxW = 220;
   const imgGap = 10;
@@ -1290,9 +1293,9 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
     doc.text('—', marginX+6, y_+14);
     y_ += 22;
   } else {
-    doc.setFont('helvetica','italic');
+    doc.setFont('helvetica','normal');
     doc.setFontSize(10);
-    doc.setTextColor(ANSWER_COLOR[0],ANSWER_COLOR[1],ANSWER_COLOR[2]);
+    doc.setTextColor(0,0,0);
     actionRows.forEach(row=>{
       const actionLines = doc.splitTextToSize(row.action || '—', colAction - 12);
       const delaiLines = doc.splitTextToSize(row.delai || '—', colDelai - 12);
