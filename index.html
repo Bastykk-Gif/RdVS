@@ -545,8 +545,9 @@
         <label>Contrôle du suivi (clients relancés)</label>
         <textarea placeholder="Commentaires"></textarea>
       </div>
-      <div class="item" data-field="bad_cas">
+      <div class="item ras-item" data-field="bad_cas">
         <label>Discussion sur les cas particuliers</label>
+        <button type="button" class="ras-btn">RAS</button>
         <textarea placeholder="Commentaires"></textarea>
       </div>
       <div class="item ras-item" data-field="bad_inventaires">
@@ -620,6 +621,11 @@
       </div>
 
       <div class="part-header"><h2>Accueil</h2></div>
+      <div class="item ras-item filled" data-field="acc_classeur">
+        <label>Classeur bleu</label>
+        <button type="button" class="ras-btn">RAS</button>
+        <textarea placeholder="Commentaires">Contrôle des dernières checklist quotidienne, du tableau des KPI mensuels, documents d'infos site...</textarea>
+      </div>
       <div class="item ras-item" data-field="acc_bureaux">
         <label>Bureaux staff</label>
         <button type="button" class="ras-btn">RAS</button>
@@ -640,8 +646,9 @@
         <button type="button" class="ras-btn">RAS</button>
         <textarea placeholder="Propreté, équipements, stock..."></textarea>
       </div>
-      <div class="item" data-field="acc_divers">
+      <div class="item ras-item" data-field="acc_divers">
         <label>Divers Accueil</label>
+        <button type="button" class="ras-btn">RAS</button>
         <textarea placeholder="Tout autre point à signaler..."></textarea>
       </div>
 
@@ -1032,6 +1039,7 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
         ["Divers Extérieur","ext_divers"]
       ]},
       {title:"Accueil", items:[
+        ["Classeur bleu","acc_classeur"],
         ["Bureaux staff","acc_bureaux"],
         ["Salon & marchandises","acc_salon"],
         ["Écran TV","acc_ecran"],
@@ -1049,29 +1057,62 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
   const bottomLimit = pageH - 50;
   let y_ = 56;
 
+  const NAVY = [29,29,205];
+  const ANSWER_COLOR = [20,20,140];
+
   function checkPage(needed){
     if(y_ + needed > bottomLimit){ doc.addPage(); y_ = 56; }
   }
 
-  doc.setTextColor(29,29,205);
+  function drawMajorTitle(title){
+    checkPage(34);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(14);
+    const textW = doc.getTextWidth(title);
+    const boxW = textW + 24;
+    const boxH = 24;
+    doc.setDrawColor(NAVY[0],NAVY[1],NAVY[2]);
+    doc.setLineWidth(1.2);
+    doc.roundedRect(marginX, y_ - 17, boxW, boxH, 4, 4);
+    doc.setTextColor(NAVY[0],NAVY[1],NAVY[2]);
+    doc.text(title, marginX + 12, y_);
+    doc.setLineWidth(1);
+    y_ += 26;
+  }
+
+  function labelWithAnswer(labelText, value, xOffset){
+    doc.setFont('helvetica','normal');
+    doc.setTextColor(0,0,0);
+    doc.text(labelText, marginX + xOffset, y_);
+    const lw = doc.getTextWidth(labelText);
+    doc.setFont('helvetica','italic');
+    doc.setTextColor(ANSWER_COLOR[0],ANSWER_COLOR[1],ANSWER_COLOR[2]);
+    doc.text(value || '—', marginX + xOffset + lw + 3, y_);
+    doc.setFont('helvetica','normal');
+    doc.setTextColor(0,0,0);
+  }
+
+  doc.setTextColor(NAVY[0],NAVY[1],NAVY[2]);
   doc.setFont('helvetica','bold');
   doc.setFontSize(17);
   doc.text('Rapport de visite de site — Lockall', marginX, y_);
   y_ += 22;
-  doc.setDrawColor(29,29,205);
+  doc.setDrawColor(NAVY[0],NAVY[1],NAVY[2]);
   doc.line(marginX, y_, pageW-marginX, y_);
-  y_ += 22;
+  y_ += 30;
 
-  doc.setTextColor(0,0,0);
+  // ---------- INFOS ----------
+  drawMajorTitle('Infos');
   doc.setFont('helvetica','normal');
   doc.setFontSize(11);
+  doc.setTextColor(0,0,0);
   doc.text(`Date : ${d}/${m}/${y}`, marginX, y_);
   doc.text(`Site : ${site}`, marginX+220, y_);
   y_ += 18;
-  doc.text(`Manager : ${manager || '—'}`, marginX, y_);
+  labelWithAnswer('Manager :', manager, 0);
   y_ += 18;
-  doc.text(`Équipe : ${team || '—'}`, marginX, y_);
-  y_ += 26;
+  labelWithAnswer('Équipe :', team, 0);
+  y_ += 30;
 
   const imgMaxW = 220;
   const imgGap = 10;
@@ -1112,42 +1153,19 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
     doc.setTextColor(0,0,0);
     doc.text(displayLabel, marginX, y_);
     y_ += 15;
-    doc.setFont('helvetica','normal');
+    doc.setFont('helvetica','italic');
     doc.setFontSize(10.5);
+    doc.setTextColor(ANSWER_COLOR[0],ANSWER_COLOR[1],ANSWER_COLOR[2]);
     const lines = doc.splitTextToSize(text, pageW - marginX*2);
     checkPage(lines.length*13 + 10);
     doc.text(lines, marginX, y_);
+    doc.setFont('helvetica','normal');
+    doc.setTextColor(0,0,0);
     y_ += lines.length*13 + 8;
     writeImages(fieldKey);
   }
 
-  sections.forEach(major=>{
-    checkPage(34);
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(15);
-    doc.setTextColor(29,29,205);
-    doc.text(major.major, marginX, y_);
-    y_ += 8;
-    doc.setDrawColor(246,161,25);
-    doc.setLineWidth(2);
-    doc.line(marginX, y_, marginX+40, y_);
-    doc.setLineWidth(1);
-    y_ += 18;
-
-    major.parts.forEach(part=>{
-      checkPage(26);
-      doc.setFont('helvetica','bold');
-      doc.setFontSize(12.5);
-      doc.setTextColor(60,60,60);
-      doc.text(part.title, marginX, y_);
-      doc.setTextColor(0,0,0);
-      y_ += 16;
-      part.items.forEach(([label,key])=> writeItem(label,key));
-      y_ += 4;
-    });
-  });
-
-  // ---------- Tableau Actions à mener ----------
+  // ---------- ACTIONS À MENER (positionné après Infos, avant Business) ----------
   const actionRows = Array.from(document.querySelectorAll('#actionsBody tr')).map(tr=>{
     const rawDelai = tr.querySelector('.delai-input').value.trim();
     let delaiFormatted = '';
@@ -1162,18 +1180,7 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
     };
   }).filter(r=> r.action || r.delai || r.qui);
 
-  checkPage(40);
-  y_ += 10;
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(15);
-  doc.setTextColor(29,29,205);
-  doc.text('Actions à mener', marginX, y_);
-  y_ += 8;
-  doc.setDrawColor(246,161,25);
-  doc.setLineWidth(2);
-  doc.line(marginX, y_, marginX+40, y_);
-  doc.setLineWidth(1);
-  y_ += 18;
+  drawMajorTitle('Actions à mener');
 
   const tableW = pageW - marginX*2;
   const colAction = tableW * 0.5;
@@ -1189,7 +1196,7 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
     doc.rect(marginX, y_, tableW, 20);
     doc.setFont('helvetica','bold');
     doc.setFontSize(10);
-    doc.setTextColor(29,29,205);
+    doc.setTextColor(NAVY[0],NAVY[1],NAVY[2]);
     doc.text('Action', marginX+6, y_+13);
     doc.text('Délai', marginX+colAction+6, y_+13);
     doc.text('Par qui', marginX+colAction+colDelai+6, y_+13);
@@ -1207,8 +1214,9 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
     doc.text('—', marginX+6, y_+14);
     y_ += 22;
   } else {
-    doc.setFont('helvetica','normal');
+    doc.setFont('helvetica','italic');
     doc.setFontSize(10);
+    doc.setTextColor(ANSWER_COLOR[0],ANSWER_COLOR[1],ANSWER_COLOR[2]);
     actionRows.forEach(row=>{
       const actionLines = doc.splitTextToSize(row.action || '—', colAction - 12);
       const delaiLines = doc.splitTextToSize(row.delai || '—', colDelai - 12);
@@ -1219,14 +1227,32 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
       checkPage(rowH);
       doc.setDrawColor(225,228,234);
       doc.rect(marginX, y_, tableW, rowH);
-      doc.setTextColor(0,0,0);
       doc.text(actionLines, marginX+6, y_+rowPad+9);
       doc.text(delaiLines, marginX+colAction+6, y_+rowPad+9);
       doc.text(quiLines, marginX+colAction+colDelai+6, y_+rowPad+9);
       y_ += rowH;
     });
+    doc.setFont('helvetica','normal');
+    doc.setTextColor(0,0,0);
   }
-  y_ += 20;
+  y_ += 26;
+
+  // ---------- BUSINESS / BÂTIMENT ----------
+  sections.forEach(major=>{
+    drawMajorTitle(major.major);
+
+    major.parts.forEach(part=>{
+      checkPage(26);
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(12.5);
+      doc.setTextColor(60,60,60);
+      doc.text(part.title, marginX, y_);
+      doc.setTextColor(0,0,0);
+      y_ += 16;
+      part.items.forEach(([label,key])=> writeItem(label,key));
+      y_ += 4;
+    });
+  });
 
   doc.save(fileName);
   status.style.color = '#152A4E';
