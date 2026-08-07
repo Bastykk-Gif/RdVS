@@ -1,0 +1,1521 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rapport de visite de site — Lockall</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --navy:#181AC4;
+    --amber:#FEA800;
+    --amber-soft:#FDEFD3;
+    --paper:#F5F6F8;
+    --card:#FFFFFF;
+    --line:#E1E4EA;
+    --ink:#1B2436;
+    --ink-soft:#5B6472;
+    --gray-off:#9AA1AC;
+    --font-display: 'Iowan Old Style', 'Georgia', serif;
+    --font-heavy: 'Arial Black', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    --font-mono: 'SF Mono', 'Consolas', monospace;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    font-family:var(--font-body);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{
+    max-width:880px;
+    margin:0 auto;
+    padding:28px 20px 90px;
+  }
+
+  header.top{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    border-bottom:3px solid var(--navy);
+    padding-bottom:18px;
+    margin-bottom:26px;
+    flex-wrap:nowrap;
+  }
+  header.top .logo-mark{flex-shrink:0;}
+  header.top .titles{
+    display:flex;
+    flex-direction:column;
+    min-width:0;
+    flex:1 1 auto;
+  }
+  header.top .brand{
+    font-family:var(--font-heavy);
+    font-weight:900;
+    font-size:clamp(15px,4vw,32px);
+    color:var(--amber);
+    letter-spacing:-0.3px;
+    line-height:1.15;
+    background:var(--navy);
+    padding:10px 20px;
+    border-radius:10px;
+    text-align:right;
+    overflow-wrap:break-word;
+    width:fit-content;
+    max-width:100%;
+    margin-left:auto;
+  }
+  header.top .sub{
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:1.2px;
+    color:var(--ink-soft);
+    margin-top:4px;
+  }
+
+  /* Cadre bleu Lockall commun (Infos / Business / Bâtiment) */
+  .major-block{
+    background:var(--navy);
+    border-radius:16px;
+    padding:22px;
+    margin:28px 0;
+  }
+  .major-block h1{
+    font-family:var(--font-heavy);
+    font-weight:900;
+    text-transform:uppercase;
+    font-size:clamp(22px,6vw,32px);
+    letter-spacing:1px;
+    color:var(--amber);
+    margin:0 0 18px;
+  }
+  .major-inner{
+    background:var(--card);
+    border-radius:12px;
+    padding:18px 18px 6px;
+  }
+
+  /* Encart Infos */
+  .infocard-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:20px;
+    padding-bottom:14px;
+  }
+  .infocard-grid label{
+    display:block;
+    font-size:15px;
+    font-weight:600;
+    color:var(--navy);
+    margin-bottom:8px;
+  }
+  .infocard-grid input[type=date]{
+    width:100%;
+    border:none;
+    border-bottom:1px solid var(--line);
+    background:transparent;
+    font-family:var(--font-body);
+    font-size:16px;
+    color:var(--ink);
+    padding:4px 2px 8px 26px;
+  }
+  .date-wrap{position:relative;}
+  .date-wrap .cal-icon{
+    position:absolute;
+    left:0;
+    top:50%;
+    transform:translateY(-30%);
+    pointer-events:none;
+  }
+  .infocard-grid input[type=date]::-webkit-calendar-picker-indicator{
+    position:absolute;
+    left:0; top:0;
+    width:100%; height:100%;
+    margin:0; padding:0;
+    opacity:0;
+    cursor:pointer;
+  }
+  .infocard-grid select,
+  .infocard-grid input[type=text],
+  .infocard-grid textarea{
+    width:100%;
+    border:none;
+    border-bottom:1px solid var(--line);
+    background:transparent;
+    font-family:var(--font-body);
+    font-size:16px;
+    color:var(--ink);
+    padding:4px 2px 8px;
+  }
+  .infocard-grid textarea{resize:vertical; min-height:44px; line-height:1.4;}
+  .infocard-grid select{cursor:pointer;}
+  .infocard-grid input:focus,.infocard-grid select:focus,.infocard-grid textarea:focus{outline:none;border-bottom-color:var(--amber);}
+  .full-row{grid-column:1 / -1;}
+
+  /* Sous-parties : sous-titres mis en avant */
+  .part-header{
+    margin:10px 0 14px;
+  }
+  .part-header h2{
+    font-family:var(--font-body);
+    font-size:16.5px;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:0.6px;
+    margin:0;
+    color:var(--navy);
+    border-left:5px solid var(--amber);
+    padding:6px 0 6px 12px;
+    background:var(--amber-soft);
+    border-radius:0 6px 6px 0;
+  }
+
+  .item{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-left:3px solid var(--line);
+    border-radius:8px;
+    padding:12px 16px;
+    margin-bottom:10px;
+    transition:border-left-color .15s ease, opacity .15s ease;
+  }
+  .item.filled{border-left-color:var(--amber);}
+  .item-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:6px;
+  }
+  .item label{
+    display:block;
+    font-size:14.5px;
+    font-weight:600;
+    margin-bottom:8px;
+  }
+  .item .ras-btn{
+    display:inline-block;
+    margin-bottom:10px;
+  }
+  .item textarea{
+    width:100%;
+    border:none;
+    resize:vertical;
+    min-height:44px;
+    font-family:var(--font-body);
+    font-size:14px;
+    color:var(--ink);
+    background:transparent;
+    padding:0;
+    line-height:1.45;
+  }
+  .item textarea:focus{outline:none;}
+  .item textarea:disabled{
+    color:var(--gray-off);
+    font-style:italic;
+  }
+  .item.ras{background:#FAFAFA;}
+  .item.ras textarea{opacity:0.65;}
+
+  .ras-btn{
+    flex-shrink:0;
+    font-family:var(--font-mono);
+    font-size:10.5px;
+    letter-spacing:0.8px;
+    text-transform:uppercase;
+    border:1px solid var(--line);
+    background:var(--card);
+    color:var(--ink-soft);
+    padding:5px 12px;
+    border-radius:20px;
+    cursor:pointer;
+    transition:all .15s ease;
+  }
+  .ras-btn:hover{border-color:var(--navy); color:var(--navy);}
+  .ras-btn.active{
+    background:var(--navy);
+    border-color:var(--navy);
+    color:#fff;
+  }
+
+  .item.numeric{display:flex; align-items:flex-start; gap:14px; flex-wrap:wrap;}
+  .item.numeric .num-input{width:70px; flex-shrink:0;}
+  .item.numeric input[type=number]{
+    width:100%;
+    border:none;
+    border-bottom:1px solid var(--line);
+    background:transparent;
+    font-size:22px;
+    font-family:var(--font-mono);
+    color:var(--amber);
+    padding:2px 0;
+  }
+  .item.numeric input[type=number]:focus{outline:none;border-bottom-color:var(--navy);}
+  .item.numeric .num-input span{
+    display:block;
+    font-family:var(--font-mono);
+    font-size:9.5px;
+    color:var(--ink-soft);
+    text-transform:uppercase;
+    letter-spacing:1px;
+    margin-top:4px;
+  }
+  .item.numeric .side{flex:1; min-width:200px;}
+
+  .item-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:8px;
+  }
+  .item-head label{margin-bottom:0;}
+  .item-head .media-add{
+    width:34px;
+    height:34px;
+  }
+  .item-head .media-add svg{width:18px;height:18px;}
+
+  .media-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:10px;
+    align-items:center;
+  }
+  .media-thumb{
+    position:relative;
+    width:48px;
+    height:48px;
+    border-radius:8px;
+    overflow:hidden;
+    border:1px solid var(--line);
+    flex-shrink:0;
+  }
+  .media-thumb img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+  }
+  .media-thumb .rm{
+    position:absolute;
+    top:0; right:0;
+    width:16px;height:16px;
+    background:rgba(24,26,196,0.85);
+    color:#fff;
+    border:none;
+    font-size:10px;
+    line-height:16px;
+    text-align:center;
+    cursor:pointer;
+    border-radius:0 0 0 6px;
+    padding:0;
+  }
+  .media-add{
+    width:48px;
+    height:48px;
+    flex-shrink:0;
+    border:1.5px dashed var(--line);
+    border-radius:8px;
+    background:transparent;
+    color:var(--navy);
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .media-add:hover{border-color:var(--amber); background:var(--amber-soft);}
+  .media-add svg{width:20px;height:20px;}
+
+  /* Actions à mener */
+  .actions-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch;}
+  table.actions-table{
+    width:100%;
+    min-width:520px;
+    border-collapse:collapse;
+  }
+  table.actions-table th{
+    text-align:left;
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:0.6px;
+    color:var(--navy);
+    background:var(--amber-soft);
+    padding:10px 12px;
+    border:1px solid var(--line);
+  }
+  table.actions-table th.col-action{width:48%;}
+  table.actions-table th.col-delai{width:18%;}
+  table.actions-table th.col-qui{width:22%;}
+  table.actions-table th.col-rm{width:36px;}
+  table.actions-table td{
+    border:1px solid var(--line);
+    padding:6px 8px;
+    vertical-align:top;
+  }
+  table.actions-table textarea.action-input{
+    width:100%;
+    border:none;
+    resize:vertical;
+    min-height:38px;
+    font-family:var(--font-body);
+    font-size:14px;
+    color:var(--ink);
+    background:transparent;
+    padding:2px;
+    line-height:1.4;
+  }
+  table.actions-table textarea.action-input:focus{outline:none;}
+  table.actions-table input.delai-input,
+  table.actions-table input.qui-input{
+    width:100%;
+    border:none;
+    font-family:var(--font-body);
+    font-size:14px;
+    color:var(--ink);
+    background:transparent;
+    padding:4px 2px;
+  }
+  table.actions-table td .date-wrap{position:relative;}
+  table.actions-table td .date-wrap input[type=date]{
+    padding-left:22px;
+  }
+  table.actions-table td .date-wrap .cal-icon{
+    left:0;
+    transform:translateY(-45%);
+  }
+  table.actions-table input.delai-input:focus,
+  table.actions-table input.qui-input:focus{outline:none;}
+  table.actions-table td.rm-cell{text-align:center;}
+  .row-rm{
+    border:none;
+    background:transparent;
+    color:var(--gray-off);
+    font-size:16px;
+    cursor:pointer;
+    line-height:1;
+    padding:4px;
+  }
+  .row-rm:hover{color:#B4732B;}
+  table.actions-table input.delai-input::-webkit-calendar-picker-indicator{
+    position:absolute;
+    left:0; top:0;
+    width:100%; height:100%;
+    margin:0; padding:0;
+    opacity:0;
+    cursor:pointer;
+  }
+  .add-row-btn{
+    margin-top:14px;
+    font-family:var(--font-mono);
+    font-size:11.5px;
+    letter-spacing:0.8px;
+    text-transform:uppercase;
+    border:1.5px dashed var(--line);
+    background:transparent;
+    color:var(--navy);
+    padding:8px 16px;
+    border-radius:20px;
+    cursor:pointer;
+    transition:all .15s ease;
+  }
+  .add-row-btn:hover{border-color:var(--amber); background:var(--amber-soft);}
+
+  .reset-bar{
+    display:flex;
+    justify-content:flex-end;
+    margin-bottom:16px;
+  }
+  #resetBtn{
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:0.6px;
+    text-transform:uppercase;
+    background:transparent;
+    color:#B4732B;
+    border:1.5px solid #B4732B;
+    padding:8px 16px;
+    border-radius:20px;
+    cursor:pointer;
+    transition:all .15s ease;
+  }
+  #resetBtn:hover{background:#B4732B; color:#fff;}
+  @media print{
+    .reset-bar{display:none !important;}
+  }
+
+  .export-bar{
+    display:flex;
+    justify-content:center;
+    margin-top:44px;
+  }
+  #exportBtn{
+    font-family:var(--font-mono);
+    text-transform:uppercase;
+    letter-spacing:1.5px;
+    font-size:12.5px;
+    background:var(--navy);
+    color:#fff;
+    border:none;
+    padding:15px 30px;
+    border-radius:40px;
+    cursor:pointer;
+    transition:transform .12s ease, background .15s ease;
+    width:100%;
+    max-width:360px;
+  }
+  #exportBtn:hover{background:var(--amber); color:var(--navy); transform:translateY(-1px);}
+  #exportBtn:active{transform:translateY(0);}
+  .status{
+    text-align:center;
+    font-family:var(--font-mono);
+    font-size:11px;
+    color:var(--ink-soft);
+    margin-top:10px;
+  }
+
+  @media (max-width:480px){
+    header.top{flex-wrap:wrap;}
+    header.top .titles{flex:1 1 100%;}
+    header.top .brand{text-align:left; margin-left:0; width:100%;}
+    header.top .logo-mark{margin-left:0;}
+  }
+
+  @media (max-width:640px){
+    .wrap{padding:20px 14px 80px;}
+    .infocard-grid{grid-template-columns:1fr;}
+    .major-block{padding:16px;}
+    .major-inner{padding:14px 14px 4px;}
+    .item.numeric{flex-direction:column;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="logo-mark">
+      <img src="data:image/png;base64,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" alt="Lockall" style="height:clamp(48px,10vw,70px); width:auto; display:block;">
+    </div>
+    <div class="titles">
+      <div class="brand">Rapport de visite de site</div>
+    </div>
+  </header>
+
+  <div class="reset-bar">
+    <button type="button" id="resetBtn">Remise à zéro du formulaire</button>
+  </div>
+
+  <!-- INFOS -->
+  <div class="major-block">
+    <h1>Infos</h1>
+    <div class="major-inner">
+      <div class="infocard-grid">
+        <div>
+          <label for="visitDate">Date de la visite</label>
+          <div class="date-wrap">
+            <input type="date" id="visitDate">
+            <svg class="cal-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="3" y="4.5" width="18" height="16" rx="2.5" stroke="#152A4E" stroke-width="1.6"/>
+              <path d="M3 9.5H21" stroke="#152A4E" stroke-width="1.6"/>
+              <path d="M8 2.5V6.5" stroke="#152A4E" stroke-width="1.6" stroke-linecap="round"/>
+              <path d="M16 2.5V6.5" stroke="#152A4E" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+          </div>
+        </div>
+        <div>
+          <label for="siteSelect">Site</label>
+          <select id="siteSelect">
+            <option value="">— Sélectionner —</option>
+            <option>Argenteuil</option>
+            <option>Cergy</option>
+            <option>Suresnes</option>
+            <option>Paris 8</option>
+            <option>Paris 13</option>
+            <option>Lognes</option>
+            <option>Poissy</option>
+            <option>Vélizy</option>
+          </select>
+        </div>
+        <div class="full-row">
+          <label for="managerInput">Manager réalisant la visite</label>
+          <input type="text" id="managerInput" placeholder="Nom du manager">
+        </div>
+        <div class="full-row">
+          <label for="teamInput">Équipe</label>
+          <textarea id="teamInput" placeholder="Noms de l'équipe présente"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PARTIE 1 : BUSINESS -->
+  <div class="major-block">
+    <h1>Business</h1>
+    <div class="major-inner">
+
+      <div class="part-header"><h2>Classeur bleu</h2></div>
+      <div class="item ras-item" data-field="acc_classeur">
+        <label>Classeur bleu</label>
+        <button type="button" class="ras-btn">RAS</button>
+        <textarea placeholder="Contrôle des dernières checklist quotidienne, du tableau des KPI mensuels, documents d'infos site..."></textarea>
+      </div>
+
+      <div class="part-header"><h2>Commerce</h2></div>
+      <div class="item" data-field="com_leads">
+        <label>Étude et appels des leads « Besoin &lt; 1 semaine »</label>
+        <textarea placeholder="Commentaires"></textarea>
+      </div>
+      <div class="item" data-field="com_coaching">
+        <label>Coaching (live, replay, jeu de rôle)</label>
+        <textarea placeholder="Commentaires"></textarea>
+      </div>
+
+      <div class="part-header"><h2>Retards de paiements et contentieux</h2></div>
+      <div class="item" data-field="bad_suivi">
+        <label>Contrôle du suivi (clients relancés)</label>
+        <textarea placeholder="Commentaires"></textarea>
+      </div>
+      <div class="item ras-item" data-field="bad_cas">
+        <label>Discussion sur les cas particuliers</label>
+        <button type="button" class="ras-btn">RAS</button>
+        <textarea placeholder="Commentaires"></textarea>
+      </div>
+      <div class="item ras-item" data-field="bad_inventaires">
+        <label>Préparation et suivi des inventaires</label>
+        <button type="button" class="ras-btn">RAS</button>
+        <textarea placeholder="Avancement, écarts, actions à mener..."></textarea>
+      </div>
+
+      <div class="part-header"><h2>Avis Google</h2></div>
+      <div class="item numeric" data-field="google_avis">
+        <div class="num-input">
+          <input type="number" min="0" id="googleCount" placeholder="0">
+          <span>Avis</span>
+        </div>
+        <div class="side">
+          <label>Combien d'avis « il y a 1 mois » à aujourd'hui sur Google Maps ?</label>
+          <textarea placeholder="Commentaires"></textarea>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- PARTIE 2 : BATIMENT -->
+  <div class="major-block">
+    <h1>Bâtiment</h1>
+    <div class="major-inner">
+
+      <div class="part-header"><h2>Intérieur</h2></div>
+      <div class="item ras-item" data-field="int_livraison">
+        <label>Zone livraison</label>
+        <button type="button" class="ras-btn">RAS</button>
+        <textarea placeholder="État, organisation, accès..."></textarea>
+      </div>
+      <div class="item ras-item" data-field="int_couloirs">
+        <label>Couloirs</label>
+        <button type="button" class="ras-btn">RAS</button>
+        <textarea placeholder="Propreté, éclairage, encombrement..."></textarea>
+      </div>
+      <div class="item ras-item" data-field="int_communautaire">
+        <label>Zone communautaire (salle de déjeuner)</label>
+        <button type="button" class="ras-btn">RAS</button>
+        <textarea placeholder="Propreté, équipements..."></textarea>
+      </div>
+      <div class="item ras-item" data-field="int_sanitaires">
+        <label>Sanitaire clients</label>
+        <button type="button" class="ras-btn">RAS</button>
+        <textarea placeholder="Propreté, fonctionnement, consommables..."></textarea>
+      </div>
+      <div class="item ras-item" data-field="int_divers">
+        <label>Divers Intérieur</label>
+        <button type="button" class="ras-btn">RAS</button>
+        <textarea placeholder="Tout autre point à signaler..."></textarea>
+      </div>
+
+      <div class="part-header"><h2>Extérieur</h2></div>
+      <div class="item ras-item" data-field="ext_parking">
+        <label>Parking</label>
+        <button type="button" class="ras-btn">RAS</button>
+        <textarea placeholder="État..."></textarea>
+      </div>
+      <div class="item ras-item" data-field="ext_murs">
+        <label>Murs, façades et grillages</label>
+        <button type="button" class="ras-btn">RAS</button>
+        <textarea placeholder="État général, dégradations, sécurité..."></textarea>
+      </div>
+      <div class="item ras-item" data-field="ext_divers">
+        <label>Divers Extérieur</label>
+        <button type="button" class="ras-btn">RAS</button>
+        <textarea placeholder="Tout autre point à signaler..."></textarea>
+      </div>
+
+      <div class="part-header"><h2>Accueil</h2></div>
+      <div class="item ras-item" data-field="acc_bureaux">
+        <label>Bureaux staff</label>
+        <button type="button" class="ras-btn">RAS</button>
+        <textarea placeholder="Rangement, tenue de l'espace..."></textarea>
+      </div>
+      <div class="item ras-item" data-field="acc_salon">
+        <label>Salon &amp; marchandises</label>
+        <button type="button" class="ras-btn">RAS</button>
+        <textarea placeholder="Présentation, stock, étiquetage..."></textarea>
+      </div>
+      <div class="item ras-item" data-field="acc_ecran">
+        <label>Écran TV</label>
+        <button type="button" class="ras-btn">RAS</button>
+        <textarea placeholder="Fonctionnement, contenu diffusé..."></textarea>
+      </div>
+      <div class="item ras-item" data-field="acc_cuisine">
+        <label>Espace cuisine</label>
+        <button type="button" class="ras-btn">RAS</button>
+        <textarea placeholder="Propreté, équipements, stock..."></textarea>
+      </div>
+      <div class="item ras-item" data-field="acc_divers">
+        <label>Divers Accueil</label>
+        <button type="button" class="ras-btn">RAS</button>
+        <textarea placeholder="Tout autre point à signaler..."></textarea>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ACTIONS A MENER -->
+  <div class="major-block">
+    <h1>Actions à mener</h1>
+    <div class="major-inner">
+      <div class="actions-wrap">
+        <table class="actions-table" id="actionsTable">
+          <thead>
+            <tr>
+              <th class="col-action">Action</th>
+              <th class="col-delai">Délai</th>
+              <th class="col-qui">Par qui</th>
+              <th class="col-rm"></th>
+            </tr>
+          </thead>
+          <tbody id="actionsBody">
+            <tr>
+              <td><textarea class="action-input" placeholder="Décrire l'action à mener"></textarea></td>
+              <td><div class="date-wrap"><input type="date" class="delai-input"><svg class="cal-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="4.5" width="18" height="16" rx="2.5" stroke="#152A4E" stroke-width="1.6"/><path d="M3 9.5H21" stroke="#152A4E" stroke-width="1.6"/><path d="M8 2.5V6.5" stroke="#152A4E" stroke-width="1.6" stroke-linecap="round"/><path d="M16 2.5V6.5" stroke="#152A4E" stroke-width="1.6" stroke-linecap="round"/></svg></div></td>
+              <td><input type="text" class="qui-input" placeholder="Nom"></td>
+              <td class="rm-cell"><button type="button" class="row-rm" title="Supprimer la ligne">×</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <button type="button" id="addRowBtn" class="add-row-btn">+ Ajouter une ligne</button>
+    </div>
+  </div>
+
+  <div class="export-bar">
+    <button id="exportBtn">Valider et exporter en PDF</button>
+  </div>
+  <div class="status" id="statusMsg"></div>
+
+</div>
+
+<script>
+// ---------- Sauvegarde automatique locale ----------
+// Plusieurs personnes utilisent ce même lien : chaque brouillon (et les photos, voir plus
+// bas) est namespacé par le nom saisi dans "Manager réalisant la visite", pour que les
+// sauvegardes de deux managers sur le même appareil ne se mélangent pas.
+const STORAGE_KEY_BASE = 'lockall_visite_draft_v1';
+const LAST_USER_KEY = 'lockall_visite_last_user';
+
+function slugifyUser(name){
+  const clean = (name || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .trim().toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return clean || 'anonyme';
+}
+function getUserKey(){
+  const el = document.getElementById('managerInput');
+  return slugifyUser(el ? el.value : '');
+}
+function currentStorageKey(){
+  return STORAGE_KEY_BASE + '_' + getUserKey();
+}
+
+let saveTimer = null;
+function scheduleSave(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveState, 300);
+}
+
+function collectState(){
+  const state = { fields:{}, items:{}, actions:[] };
+  ['visitDate','siteSelect','managerInput','teamInput','googleCount'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) state.fields[id] = el.value;
+  });
+  document.querySelectorAll('.item[data-field]').forEach(item=>{
+    const key = item.dataset.field;
+    const textarea = item.querySelector('textarea');
+    const rasBtn = item.querySelector('.ras-btn');
+    state.items[key] = {
+      text: textarea ? (rasBtn && rasBtn.classList.contains('active') ? (textarea.dataset.prev || '') : textarea.value) : '',
+      ras: rasBtn ? rasBtn.classList.contains('active') : false
+      // Les photos ne sont plus mises dans ce brouillon localStorage : voir IndexedDB plus bas.
+      // Des photos de téléphone en pleine résolution dépassaient le quota localStorage (souvent
+      // 5 Mo sur mobile), l'écriture échouait silencieusement et les photos disparaissaient au
+      // rafraîchissement de la page.
+    };
+  });
+  document.querySelectorAll('#actionsBody tr').forEach(tr=>{
+    state.actions.push({
+      action: tr.querySelector('.action-input').value,
+      delai: tr.querySelector('.delai-input').value,
+      qui: tr.querySelector('.qui-input').value
+    });
+  });
+  return state;
+}
+
+function saveState(){
+  try{
+    localStorage.setItem(currentStorageKey(), JSON.stringify(collectState()));
+    localStorage.setItem(LAST_USER_KEY, document.getElementById('managerInput').value || '');
+  }catch(e){ /* stockage indisponible : abandon silencieux (texte uniquement, donc rare) */ }
+}
+
+function restoreState(){
+  let raw;
+  try{ raw = localStorage.getItem(currentStorageKey()); }catch(e){ return; }
+  if(!raw) return;
+  let state;
+  try{ state = JSON.parse(raw); }catch(e){ return; }
+
+  Object.keys(state.fields || {}).forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.value = state.fields[id];
+  });
+
+  Object.keys(state.items || {}).forEach(key=>{
+    const item = document.querySelector(`.item[data-field="${key}"]`);
+    if(!item) return;
+    const data = state.items[key];
+    const textarea = item.querySelector('textarea');
+    const rasBtn = item.querySelector('.ras-btn');
+
+    if(textarea && data.text) textarea.value = data.text;
+    if(textarea && data.text && data.text.trim().length>0) item.classList.add('filled');
+
+    if(rasBtn && data.ras){
+      rasBtn.classList.add('active');
+      item.classList.add('ras');
+      item.classList.add('filled');
+      if(textarea){
+        textarea.dataset.prev = data.text || '';
+        textarea.value = 'RAS';
+        textarea.disabled = true;
+      }
+    }
+  });
+
+  if(state.actions && state.actions.length){
+    const meaningful = state.actions.filter(a=> (a.action || a.delai || a.qui));
+    if(meaningful.length){
+      const tbody = document.getElementById('actionsBody');
+      tbody.innerHTML = '';
+      meaningful.forEach(a=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = actionRowTemplate;
+        tr.querySelector('.action-input').value = a.action || '';
+        tr.querySelector('.delai-input').value = a.delai || '';
+        tr.querySelector('.qui-input').value = a.qui || '';
+        tbody.appendChild(tr);
+        wireActionRow(tr);
+      });
+    }
+  }
+
+  // Restauration des photos : stockées à part en IndexedDB (voir plus bas), qui n'a pas la
+  // limite pratique de taille de localStorage et convient donc bien à des images.
+  idbGetUserPhotos().then(allPhotos=>{
+    Object.keys(allPhotos).forEach(key=>{
+      const item = document.querySelector(`.item[data-field="${key}"]`);
+      if(!item || !(key in photoStore)) return;
+      const photos = allPhotos[key];
+      if(photos && photos.length){
+        photoStore[key] = photos;
+        if(item._renderThumbs) item._renderThumbs();
+        item.classList.add('filled');
+      }
+    });
+  });
+}
+
+// ---------- Icône calendrier ----------
+document.querySelectorAll('.date-wrap').forEach(wrap=>{
+  const input = wrap.querySelector('input[type=date]');
+  wrap.addEventListener('click', ()=>{
+    if(typeof input.showPicker === 'function'){
+      try{ input.showPicker(); }catch(e){}
+    }
+  });
+});
+
+// ---------- Stockage persistant des photos (IndexedDB) ----------
+// localStorage a un quota pratique très faible (souvent 5 Mo sur mobile) : une ou deux
+// photos de téléphone en pleine résolution le dépassent, l'écriture échoue silencieusement
+// et les photos disparaissent au rafraîchissement de la page. IndexedDB n'a pas cette
+// limite, donc les photos sont stockées là plutôt que dans le brouillon localStorage.
+const IDB_NAME = 'lockall_visite_photos_v1';
+const IDB_STORE = 'photos';
+let idbPromise = null;
+function idbOpen(){
+  if(idbPromise) return idbPromise;
+  idbPromise = new Promise((resolve, reject)=>{
+    if(!window.indexedDB){ reject(new Error('IndexedDB indisponible')); return; }
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = ()=>{ req.result.createObjectStore(IDB_STORE); };
+    req.onsuccess = ()=> resolve(req.result);
+    req.onerror = ()=> reject(req.error);
+  });
+  return idbPromise;
+}
+async function idbSetPhotos(key, photos){
+  try{
+    const db = await idbOpen();
+    const compoundKey = getUserKey() + '::' + key;
+    await new Promise((resolve, reject)=>{
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(photos, compoundKey);
+      tx.oncomplete = resolve;
+      tx.onerror = ()=> reject(tx.error);
+    });
+  }catch(e){ /* stockage indisponible : les photos restent en mémoire pour cette session */ }
+}
+async function idbGetUserPhotos(){
+  try{
+    const db = await idbOpen();
+    const prefix = getUserKey() + '::';
+    const keys = await new Promise((resolve, reject)=>{
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_STORE).getAllKeys();
+      req.onsuccess = ()=> resolve(req.result);
+      req.onerror = ()=> reject(req.error);
+    });
+    const userKeys = keys.filter(k=> typeof k === 'string' && k.startsWith(prefix));
+    const result = {};
+    await Promise.all(userKeys.map(k=> new Promise((resolve, reject)=>{
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_STORE).get(k);
+      req.onsuccess = ()=>{ result[k.slice(prefix.length)] = req.result || []; resolve(); };
+      req.onerror = ()=> reject(req.error);
+    })));
+    return result;
+  }catch(e){ return {}; }
+}
+async function idbClearAll(userKey){
+  const uk = userKey !== undefined ? userKey : getUserKey();
+  try{
+    const db = await idbOpen();
+    const prefix = uk + '::';
+    await new Promise((resolve, reject)=>{
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      const store = tx.objectStore(IDB_STORE);
+      const req = store.getAllKeys();
+      req.onsuccess = ()=>{
+        (req.result || []).filter(k=> typeof k === 'string' && k.startsWith(prefix)).forEach(k=> store.delete(k));
+      };
+      req.onerror = ()=> reject(req.error);
+      tx.oncomplete = resolve;
+      tx.onerror = ()=> reject(tx.error);
+    });
+  }catch(e){}
+}
+
+// Compteur d'opérations photo en cours (lecture + redimensionnement asynchrones). L'export
+// PDF attend que ce compteur retombe à 0 avant de construire le document, pour ne jamais
+// imprimer une photo pas encore complètement traitée (cause probable de l'impression ratée).
+let pendingPhotoOps = 0;
+function waitForPendingPhotos(){
+  return new Promise(resolve=>{
+    (function check(){
+      if(pendingPhotoOps <= 0) resolve();
+      else setTimeout(check, 60);
+    })();
+  });
+}
+
+// Redimensionne/compresse la photo et corrige son orientation EXIF. Sur téléphone, une
+// photo prise en portrait est souvent enregistrée avec des pixels "à plat" + une étiquette
+// EXIF de rotation ; createImageBitmap({imageOrientation:'from-image'}) applique cette
+// rotation avant qu'on ne redessine l'image sur le canvas, donc la largeur/hauteur qu'on
+// enregistre ici correspond exactement à la photo telle qu'on la voit sur l'écran — et c'est
+// ce ratio qui est ensuite respecté à l'impression dans le PDF (voir writeImages plus bas).
+const PHOTO_MAX_DIM = 1600;
+const PHOTO_JPEG_QUALITY = 0.82;
+
+async function resizeImage(file){
+  let bitmap;
+  try{
+    bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+  }catch(e){
+    bitmap = await new Promise((resolve, reject)=>{
+      const reader = new FileReader();
+      reader.onload = ()=>{
+        const img = new Image();
+        img.onload = ()=> resolve(img);
+        img.onerror = reject;
+        img.src = reader.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  const srcW = bitmap.width || bitmap.naturalWidth;
+  const srcH = bitmap.height || bitmap.naturalHeight;
+  const scale = Math.min(1, PHOTO_MAX_DIM / Math.max(srcW, srcH));
+  const w = Math.max(1, Math.round(srcW * scale));
+  const h = Math.max(1, Math.round(srcH * scale));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(bitmap, 0, 0, w, h);
+  if(bitmap.close) bitmap.close();
+
+  const dataUrl = canvas.toDataURL('image/jpeg', PHOTO_JPEG_QUALITY);
+  return { dataUrl, w, h };
+}
+
+// ---------- Photos ----------
+// Stockage des photos par champ : { fieldKey: [ {dataUrl, w, h} ] }
+const photoStore = {};
+
+const cameraIconSVG = `
+<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1-1.5h7l1 1.5h2A1.5 1.5 0 0 1 20 8.5v9A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5v-9Z" stroke="#152A4E" stroke-width="1.5" stroke-linejoin="round"/>
+  <circle cx="12" cy="13" r="3.2" stroke="#152A4E" stroke-width="1.5"/>
+  <path d="M12 9.8V7.5M13.15 8.65h2.3" stroke="#F0A400" stroke-width="1.6" stroke-linecap="round"/>
+</svg>`;
+
+function buildMediaUI(item){
+  const key = item.dataset.field;
+  photoStore[key] = [];
+
+  const label = item.querySelector(':scope > label');
+
+  const headRow = document.createElement('div');
+  headRow.className = 'item-head';
+
+  const addLabel = document.createElement('label');
+  addLabel.className = 'media-add';
+  addLabel.title = "Prendre une photo ou choisir dans la galerie";
+  addLabel.innerHTML = cameraIconSVG;
+
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = 'image/*';
+  fileInput.style.position = 'absolute';
+  fileInput.style.width = '1px';
+  fileInput.style.height = '1px';
+  fileInput.style.opacity = '0';
+  fileInput.style.overflow = 'hidden';
+
+  addLabel.appendChild(fileInput);
+
+  if(label){
+    label.parentNode.insertBefore(headRow, label);
+    headRow.appendChild(label);
+  } else {
+    item.insertBefore(headRow, item.firstChild);
+  }
+  headRow.appendChild(addLabel);
+
+  const thumbsRow = document.createElement('div');
+  thumbsRow.className = 'media-row';
+
+  fileInput.addEventListener('change', ()=>{
+    const file = fileInput.files[0];
+    if(!file) return;
+    pendingPhotoOps++;
+    resizeImage(file).then(photo=>{
+      photoStore[key].push(photo);
+      renderThumbs();
+      item.classList.add('filled');
+      idbSetPhotos(key, photoStore[key]);
+      scheduleSave();
+    }).catch(()=>{
+      /* photo illisible : on l'ignore plutôt que de bloquer la saisie */
+    }).finally(()=>{
+      pendingPhotoOps--;
+    });
+    fileInput.value = '';
+  });
+
+  function renderThumbs(){
+    thumbsRow.innerHTML = '';
+    photoStore[key].forEach((photo, idx)=>{
+      const thumb = document.createElement('div');
+      thumb.className = 'media-thumb';
+      const im = document.createElement('img');
+      im.src = photo.dataUrl;
+      const rm = document.createElement('button');
+      rm.type = 'button';
+      rm.className = 'rm';
+      rm.textContent = '×';
+      rm.addEventListener('click', ()=>{
+        photoStore[key].splice(idx,1);
+        renderThumbs();
+        idbSetPhotos(key, photoStore[key]);
+        scheduleSave();
+      });
+      thumb.appendChild(im);
+      thumb.appendChild(rm);
+      thumbsRow.appendChild(thumb);
+    });
+    thumbsRow.style.display = photoStore[key].length ? 'flex' : 'none';
+  }
+  thumbsRow.style.display = 'none';
+  item._renderThumbs = renderThumbs;
+
+  item.appendChild(thumbsRow);
+}
+
+const noPhotoFields = ['com_leads','com_coaching','bad_suivi','bad_cas','google_avis'];
+document.querySelectorAll('.item[data-field]').forEach(item=>{
+  if(!noPhotoFields.includes(item.dataset.field)) buildMediaUI(item);
+});
+
+// ---------- Champs texte ----------
+document.querySelectorAll('.item textarea, .infocard-grid textarea, .infocard-grid input, #googleCount').forEach(t=>{
+  t.addEventListener('input', ()=>{
+    const item = t.closest('.item');
+    if(item) item.classList.toggle('filled', t.value.trim().length>0);
+    scheduleSave();
+  });
+});
+document.getElementById('siteSelect').addEventListener('change', scheduleSave);
+document.getElementById('visitDate').addEventListener('change', scheduleSave);
+
+// ---------- RAS ----------
+document.querySelectorAll('.ras-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const item = btn.closest('.item');
+    const textarea = item.querySelector('textarea');
+    const active = btn.classList.toggle('active');
+    item.classList.toggle('ras', active);
+    if(active){
+      textarea.dataset.prev = textarea.value;
+      textarea.value = 'RAS';
+      textarea.disabled = true;
+      item.classList.add('filled');
+    } else {
+      textarea.disabled = false;
+      textarea.value = textarea.dataset.prev || '';
+      const hasPhotos = (photoStore[item.dataset.field] || []).length>0;
+      item.classList.toggle('filled', textarea.value.trim().length>0 || hasPhotos);
+    }
+    scheduleSave();
+  });
+});
+
+const actionRowTemplate = `
+  <td><textarea class="action-input" placeholder="Décrire l'action à mener"></textarea></td>
+  <td><div class="date-wrap"><input type="date" class="delai-input"><svg class="cal-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="4.5" width="18" height="16" rx="2.5" stroke="#152A4E" stroke-width="1.6"/><path d="M3 9.5H21" stroke="#152A4E" stroke-width="1.6"/><path d="M8 2.5V6.5" stroke="#152A4E" stroke-width="1.6" stroke-linecap="round"/><path d="M16 2.5V6.5" stroke="#152A4E" stroke-width="1.6" stroke-linecap="round"/></svg></div></td>
+  <td><input type="text" class="qui-input" placeholder="Nom"></td>
+  <td class="rm-cell"><button type="button" class="row-rm" title="Supprimer la ligne">×</button></td>
+`;
+
+// ---------- Restauration du brouillon ----------
+// Pré-remplit avec le dernier manager utilisé sur cet appareil, pour que restoreState()
+// puisse calculer la bonne clé de sauvegarde et recharger automatiquement son brouillon.
+try{
+  const lastUser = localStorage.getItem(LAST_USER_KEY);
+  const managerEl = document.getElementById('managerInput');
+  if(lastUser && managerEl && !managerEl.value) managerEl.value = lastUser;
+}catch(e){}
+
+restoreState();
+
+// ---------- Remise à zéro du formulaire ----------
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  const ok = window.confirm("Êtes-vous sûr de vouloir effacer tout le contenu du formulaire ?");
+  if(!ok) return;
+
+  // On capture la clé du manager courant avant d'effacer le champ, sinon on calculerait
+  // la clé "anonyme" et on effacerait/laisserait le mauvais brouillon.
+  const keyToClear = currentStorageKey();
+  const userKeyToClear = getUserKey();
+
+  // Champs Infos
+  document.getElementById('visitDate').value = '';
+  document.getElementById('siteSelect').value = '';
+  document.getElementById('managerInput').value = '';
+  document.getElementById('teamInput').value = '';
+
+  // Champs de chaque item + RAS + photos
+  document.querySelectorAll('.item[data-field]').forEach(item=>{
+    const key = item.dataset.field;
+    const textarea = item.querySelector('textarea');
+    const rasBtn = item.querySelector('.ras-btn');
+    if(rasBtn){
+      rasBtn.classList.remove('active');
+      item.classList.remove('ras');
+    }
+    if(textarea){
+      textarea.disabled = false;
+      textarea.value = '';
+      delete textarea.dataset.prev;
+    }
+    if(photoStore[key]){
+      photoStore[key] = [];
+      if(item._renderThumbs) item._renderThumbs();
+    }
+    item.classList.remove('filled');
+  });
+
+  // Tableau Actions à mener : retour à une seule ligne vierge
+  const tbody = document.getElementById('actionsBody');
+  tbody.innerHTML = '';
+  const tr = document.createElement('tr');
+  tr.innerHTML = actionRowTemplate;
+  tbody.appendChild(tr);
+  wireActionRow(tr);
+
+  try{ localStorage.removeItem(keyToClear); }catch(e){}
+  idbClearAll(userKeyToClear);
+
+  const status = document.getElementById('statusMsg');
+  status.style.color = '#5B6472';
+  status.textContent = "Formulaire réinitialisé.";
+});
+
+function wireDateWrap(wrap){
+  const input = wrap.querySelector('input[type=date]');
+  wrap.addEventListener('click', ()=>{
+    if(typeof input.showPicker === 'function'){
+      try{ input.showPicker(); }catch(e){}
+    }
+  });
+}
+
+// ---------- Tableau Actions à mener ----------
+function wireActionRow(tr){
+  const rmBtn = tr.querySelector('.row-rm');
+  rmBtn.addEventListener('click', ()=>{
+    const tbody = document.getElementById('actionsBody');
+    if(tbody.children.length > 1){
+      tr.remove();
+    } else {
+      tr.querySelectorAll('textarea, input').forEach(el=> el.value = '');
+    }
+    if(tbody.children.length === 0){
+      const newTr = document.createElement('tr');
+      newTr.innerHTML = actionRowTemplate;
+      tbody.appendChild(newTr);
+      wireActionRow(newTr);
+    }
+    scheduleSave();
+  });
+  tr.querySelectorAll('textarea, input').forEach(el=>{
+    el.addEventListener('input', scheduleSave);
+    el.addEventListener('change', scheduleSave);
+  });
+  const dateWrap = tr.querySelector('.date-wrap');
+  if(dateWrap) wireDateWrap(dateWrap);
+}
+document.querySelectorAll('#actionsBody tr').forEach(wireActionRow);
+
+document.getElementById('addRowBtn').addEventListener('click', ()=>{
+  const tbody = document.getElementById('actionsBody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = actionRowTemplate;
+  tbody.appendChild(tr);
+  wireActionRow(tr);
+  scheduleSave();
+});
+
+document.getElementById('exportBtn').addEventListener('click', async ()=>{
+  const status = document.getElementById('statusMsg');
+
+  // On attend que toutes les photos en cours de traitement (redimensionnement + correction
+  // d'orientation) soient terminées avant de construire le PDF, pour ne jamais imprimer une
+  // photo pas encore complètement prête.
+  status.style.color = '#5B6472';
+  status.textContent = "Préparation des photos...";
+  await waitForPendingPhotos();
+
+  const dateVal = document.getElementById('visitDate').value;
+  const site = document.getElementById('siteSelect').value;
+
+  if(!dateVal || !site){
+    status.textContent = "Merci de renseigner la date et le site avant l'export.";
+    status.style.color = '#B4732B';
+    return;
+  }
+
+  const [y,m,d] = dateVal.split('-');
+  const fileDate = `${y}${m}${d}`;
+  const fileName = `${fileDate} - ${site}.pdf`;
+
+  const manager = document.getElementById('managerInput').value.trim();
+  const team = document.getElementById('teamInput').value.trim();
+
+  const sections = [
+    {major:"Business", parts:[
+      {title:"Classeur bleu", items:[
+        ["Classeur bleu","acc_classeur"]
+      ]},
+      {title:"Commerce", items:[
+        ["Étude et appels des leads « Besoin < 1 semaine »","com_leads"],
+        ["Coaching (live, replay, jeu de rôle)","com_coaching"]
+      ]},
+      {title:"Retards de paiements et contentieux", items:[
+        ["Contrôle du suivi (clients relancés)","bad_suivi"],
+        ["Discussion sur les cas particuliers","bad_cas"],
+        ["Préparation et suivi des inventaires","bad_inventaires"]
+      ]},
+      {title:"Avis Google", items:[
+        ["Avis « il y a 1 mois » à aujourd'hui","google_avis"]
+      ]}
+    ]},
+    {major:"Bâtiment", parts:[
+      {title:"Intérieur", items:[
+        ["Zone livraison","int_livraison"],
+        ["Couloirs","int_couloirs"],
+        ["Zone communautaire (salle de déjeuner)","int_communautaire"],
+        ["Sanitaire clients","int_sanitaires"],
+        ["Divers Intérieur","int_divers"]
+      ]},
+      {title:"Extérieur", items:[
+        ["Parking","ext_parking"],
+        ["Murs, façades et grillages","ext_murs"],
+        ["Divers Extérieur","ext_divers"]
+      ]},
+      {title:"Accueil", items:[
+        ["Bureaux staff","acc_bureaux"],
+        ["Salon & marchandises","acc_salon"],
+        ["Écran TV","acc_ecran"],
+        ["Espace cuisine","acc_cuisine"],
+        ["Divers Accueil","acc_divers"]
+      ]}
+    ]}
+  ];
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'pt', format:'a4'});
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const marginX = 48;
+  const bottomLimit = pageH - 50;
+  let y_ = 56;
+
+  const NAVY = [24,26,196];
+  const ANSWER_COLOR = [20,20,140];
+
+  function checkPage(needed){
+    if(y_ + needed > bottomLimit){ doc.addPage(); y_ = 56; }
+  }
+
+  function drawMajorTitle(title){
+    checkPage(34);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(14);
+    const textW = doc.getTextWidth(title);
+    const boxW = textW + 24;
+    const boxH = 24;
+    doc.setDrawColor(NAVY[0],NAVY[1],NAVY[2]);
+    doc.setLineWidth(1.2);
+    doc.roundedRect(marginX, y_ - 17, boxW, boxH, 4, 4);
+    doc.setTextColor(NAVY[0],NAVY[1],NAVY[2]);
+    doc.text(title, marginX + 12, y_);
+    doc.setLineWidth(1);
+    y_ += 26;
+  }
+
+  function labelWithAnswer(labelText, value, xOffset){
+    doc.setFont('helvetica','normal');
+    doc.setTextColor(0,0,0);
+    doc.text(labelText, marginX + xOffset, y_);
+    const lw = doc.getTextWidth(labelText);
+    doc.setFont('helvetica','italic');
+    doc.setTextColor(ANSWER_COLOR[0],ANSWER_COLOR[1],ANSWER_COLOR[2]);
+    doc.text(value || '—', marginX + xOffset + lw + 3, y_);
+    doc.setFont('helvetica','normal');
+    doc.setTextColor(0,0,0);
+  }
+
+  doc.setTextColor(NAVY[0],NAVY[1],NAVY[2]);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(17);
+  doc.text('Rapport de visite de site — Lockall', marginX, y_);
+  y_ += 22;
+  doc.setDrawColor(NAVY[0],NAVY[1],NAVY[2]);
+  doc.line(marginX, y_, pageW-marginX, y_);
+  y_ += 30;
+
+  // ---------- INFOS ----------
+  drawMajorTitle('Infos');
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(11);
+  doc.setTextColor(0,0,0);
+  doc.text(`Date : ${d}/${m}/${y}`, marginX, y_);
+  doc.text(`Site : ${site}`, marginX+220, y_);
+  y_ += 18;
+  labelWithAnswer('Manager :', manager, 0);
+  y_ += 18;
+  labelWithAnswer('Équipe :', team, 0);
+  y_ += 30;
+
+  const imgMaxW = 220;
+  const imgGap = 10;
+
+  function writeImages(fieldKey){
+    const photos = photoStore[fieldKey] || [];
+    if(!photos.length) return;
+    let x_ = marginX;
+    let rowH = 0;
+    photos.forEach((p, i)=>{
+      const w = Math.min(imgMaxW, p.w);
+      const h = w * (p.h / p.w);
+      if(x_ + w > pageW - marginX){
+        x_ = marginX;
+        y_ += rowH + imgGap;
+        rowH = 0;
+      }
+      checkPage(h + imgGap);
+      const fmt = p.dataUrl.substring(p.dataUrl.indexOf('/')+1, p.dataUrl.indexOf(';')).toUpperCase();
+      doc.addImage(p.dataUrl, fmt === 'JPEG' || fmt === 'JPG' ? 'JPEG' : 'PNG', x_, y_, w, h);
+      x_ += w + imgGap;
+      rowH = Math.max(rowH, h);
+    });
+    y_ += rowH + 14;
+  }
+
+  function writeItem(label, fieldKey){
+    const el = document.querySelector(`.item[data-field="${fieldKey}"] textarea`);
+    const text = (el ? el.value.trim() : '') || '—';
+    let displayLabel = label;
+    if(fieldKey === 'google_avis'){
+      const googleCount = document.getElementById('googleCount').value || '0';
+      displayLabel = `${label}  (${googleCount} avis)`;
+    }
+    checkPage(40);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(11.5);
+    doc.setTextColor(0,0,0);
+    doc.text(displayLabel, marginX, y_);
+    y_ += 15;
+    doc.setFont('helvetica','italic');
+    doc.setFontSize(10.5);
+    doc.setTextColor(ANSWER_COLOR[0],ANSWER_COLOR[1],ANSWER_COLOR[2]);
+    const lines = doc.splitTextToSize(text, pageW - marginX*2);
+    checkPage(lines.length*13 + 10);
+    doc.text(lines, marginX, y_);
+    doc.setFont('helvetica','normal');
+    doc.setTextColor(0,0,0);
+    y_ += lines.length*13 + 8;
+    writeImages(fieldKey);
+  }
+
+  // ---------- ACTIONS À MENER (positionné après Infos, avant Business) ----------
+  const actionRows = Array.from(document.querySelectorAll('#actionsBody tr')).map(tr=>{
+    const rawDelai = tr.querySelector('.delai-input').value.trim();
+    let delaiFormatted = '';
+    if(rawDelai){
+      const [dy,dm,dd] = rawDelai.split('-');
+      delaiFormatted = `${dd}/${dm}/${dy}`;
+    }
+    return {
+      action: tr.querySelector('.action-input').value.trim(),
+      delai: delaiFormatted,
+      qui: tr.querySelector('.qui-input').value.trim()
+    };
+  }).filter(r=> r.action || r.delai || r.qui);
+
+  drawMajorTitle('Actions à mener');
+
+  const tableW = pageW - marginX*2;
+  const colAction = tableW * 0.5;
+  const colDelai = tableW * 0.22;
+  const colQui = tableW * 0.28;
+  const rowPad = 6;
+
+  function drawTableHeader(){
+    checkPage(24);
+    doc.setFillColor(253,235,209);
+    doc.rect(marginX, y_, tableW, 20, 'F');
+    doc.setDrawColor(225,228,234);
+    doc.rect(marginX, y_, tableW, 20);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(10);
+    doc.setTextColor(NAVY[0],NAVY[1],NAVY[2]);
+    doc.text('Action', marginX+6, y_+13);
+    doc.text('Délai', marginX+colAction+6, y_+13);
+    doc.text('Par qui', marginX+colAction+colDelai+6, y_+13);
+    y_ += 20;
+  }
+
+  drawTableHeader();
+
+  if(actionRows.length === 0){
+    checkPage(24);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(10.5);
+    doc.setTextColor(0,0,0);
+    doc.rect(marginX, y_, tableW, 22);
+    doc.text('—', marginX+6, y_+14);
+    y_ += 22;
+  } else {
+    doc.setFont('helvetica','italic');
+    doc.setFontSize(10);
+    doc.setTextColor(ANSWER_COLOR[0],ANSWER_COLOR[1],ANSWER_COLOR[2]);
+    actionRows.forEach(row=>{
+      const actionLines = doc.splitTextToSize(row.action || '—', colAction - 12);
+      const delaiLines = doc.splitTextToSize(row.delai || '—', colDelai - 12);
+      const quiLines = doc.splitTextToSize(row.qui || '—', colQui - 12);
+      const maxLines = Math.max(actionLines.length, delaiLines.length, quiLines.length);
+      const rowH = maxLines*12 + rowPad*2;
+
+      checkPage(rowH);
+      doc.setDrawColor(225,228,234);
+      doc.rect(marginX, y_, tableW, rowH);
+      doc.text(actionLines, marginX+6, y_+rowPad+9);
+      doc.text(delaiLines, marginX+colAction+6, y_+rowPad+9);
+      doc.text(quiLines, marginX+colAction+colDelai+6, y_+rowPad+9);
+      y_ += rowH;
+    });
+    doc.setFont('helvetica','normal');
+    doc.setTextColor(0,0,0);
+  }
+  y_ += 26;
+
+  // ---------- BUSINESS / BÂTIMENT ----------
+  sections.forEach(major=>{
+    drawMajorTitle(major.major);
+
+    major.parts.forEach(part=>{
+      checkPage(26);
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(12.5);
+      doc.setTextColor(60,60,60);
+      doc.text(part.title, marginX, y_);
+      doc.setTextColor(0,0,0);
+      y_ += 16;
+      part.items.forEach(([label,key])=> writeItem(label,key));
+      y_ += 4;
+    });
+  });
+
+  doc.save(fileName);
+  status.style.color = '#152A4E';
+  status.textContent = `Exporté : ${fileName}`;
+  try{ localStorage.removeItem(currentStorageKey()); }catch(e){}
+});
+</script>
+</body>
+</html>
