@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Rapport de visite de site — Lockall</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
 <style>
   :root{
     --navy:#181AC4;
@@ -557,6 +559,84 @@
     .major-inner{padding:14px 14px 4px;}
     .item.numeric{flex-direction:column;}
   }
+
+  /* Fenêtre de recadrage photo */
+  .crop-modal{
+    position:fixed;
+    inset:0;
+    background:rgba(15,18,30,0.65);
+    z-index:1000;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding:16px;
+  }
+  .crop-modal-inner{
+    background:var(--card);
+    border-radius:14px;
+    padding:16px;
+    max-width:600px;
+    width:100%;
+    max-height:92vh;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    box-shadow:0 10px 40px rgba(0,0,0,0.3);
+  }
+  .crop-modal-header{
+    font-family:var(--font-heavy);
+    font-weight:900;
+    font-size:15px;
+    color:var(--navy);
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+  }
+  .crop-image-wrap{
+    max-height:55vh;
+    overflow:hidden;
+    background:#111319;
+    border-radius:8px;
+  }
+  .crop-image-wrap img{
+    display:block;
+    max-width:100%;
+  }
+  .crop-modal-hint{
+    font-family:var(--font-mono);
+    font-size:11px;
+    color:var(--gray-off);
+    text-align:center;
+  }
+  .crop-modal-actions{
+    display:flex;
+    gap:10px;
+    justify-content:flex-end;
+  }
+  .crop-btn{
+    font-family:var(--font-mono);
+    font-size:12px;
+    letter-spacing:0.6px;
+    text-transform:uppercase;
+    padding:10px 20px;
+    border-radius:20px;
+    cursor:pointer;
+    border:1.5px solid transparent;
+  }
+  .crop-btn-secondary{
+    background:transparent;
+    border-color:var(--line);
+    color:var(--ink-soft);
+  }
+  .crop-btn-secondary:hover{border-color:#B4732B; color:#B4732B;}
+  .crop-btn-primary{
+    background:var(--navy);
+    color:#fff;
+  }
+  .crop-btn-primary:hover{background:var(--amber); color:var(--navy);}
+  @media (max-width:480px){
+    .crop-modal-actions{flex-direction:column-reverse;}
+    .crop-btn{width:100%; text-align:center;}
+  }
 </style>
 </head>
 <body>
@@ -807,6 +887,21 @@
   </div>
   <div class="status" id="statusMsg"></div>
 
+</div>
+
+<!-- Fenêtre de recadrage photo -->
+<div id="cropModal" class="crop-modal">
+  <div class="crop-modal-inner">
+    <div class="crop-modal-header">Recadrer la photo</div>
+    <div class="crop-image-wrap">
+      <img id="cropImage" src="" alt="Photo à recadrer">
+    </div>
+    <div class="crop-modal-hint">Format paysage préférable</div>
+    <div class="crop-modal-actions">
+      <button type="button" id="cropCancelBtn" class="crop-btn crop-btn-secondary">Annuler</button>
+      <button type="button" id="cropConfirmBtn" class="crop-btn crop-btn-primary">Valider</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -1072,6 +1167,87 @@ async function resizeImage(file){
   return { dataUrl, w, h };
 }
 
+// Convertit un canvas déjà recadré (issu de Cropper.js) en objet photo final, en appliquant
+// la même limite de dimension/qualité que resizeImage ci-dessus, pour que les photos
+// recadrées et non recadrées restent cohérentes à l'écran comme à l'impression PDF.
+function canvasToPhoto(srcCanvas){
+  const srcW = srcCanvas.width;
+  const srcH = srcCanvas.height;
+  const scale = Math.min(1, PHOTO_MAX_DIM / Math.max(srcW, srcH));
+  const w = Math.max(1, Math.round(srcW * scale));
+  const h = Math.max(1, Math.round(srcH * scale));
+
+  let canvas = srcCanvas;
+  if(scale < 1){
+    canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext('2d').drawImage(srcCanvas, 0, 0, w, h);
+  }
+  const dataUrl = canvas.toDataURL('image/jpeg', PHOTO_JPEG_QUALITY);
+  return { dataUrl, w, h };
+}
+
+// ---------- Recadrage photo (fenêtre de dialogue partagée par tous les champs) ----------
+// Une seule instance de Cropper.js est créée à la fois : la fenêtre est réutilisée pour
+// n'importe quel champ, on sait pour laquelle relancer le traitement grâce à la Promise
+// retournée par openCropModal().
+let cropperInstance = null;
+let cropResolve = null;
+let cropObjectUrl = null;
+let cropModalEl, cropImageEl, cropCancelBtn, cropConfirmBtn;
+
+function initCropModal(){
+  cropModalEl = document.getElementById('cropModal');
+  cropImageEl = document.getElementById('cropImage');
+  cropCancelBtn = document.getElementById('cropCancelBtn');
+  cropConfirmBtn = document.getElementById('cropConfirmBtn');
+
+  cropCancelBtn.addEventListener('click', ()=>{
+    const resolve = cropResolve;
+    cropResolve = null;
+    closeCropModal();
+    if(resolve) resolve(null);
+  });
+
+  cropConfirmBtn.addEventListener('click', ()=>{
+    if(!cropperInstance){ return; }
+    const canvas = cropperInstance.getCroppedCanvas({ imageSmoothingQuality: 'high' });
+    const resolve = cropResolve;
+    cropResolve = null;
+    closeCropModal();
+    if(resolve) resolve(canvas);
+  });
+}
+
+function openCropModal(file){
+  return new Promise((resolve)=>{
+    cropResolve = resolve;
+    cropObjectUrl = URL.createObjectURL(file);
+    cropImageEl.src = cropObjectUrl;
+    cropModalEl.style.display = 'flex';
+    cropImageEl.onload = ()=>{
+      if(cropperInstance) cropperInstance.destroy();
+      cropperInstance = new Cropper(cropImageEl, {
+        viewMode: 1,
+        autoCropArea: 0.95,
+        background: false,
+        responsive: true,
+        checkOrientation: true
+      });
+    };
+  });
+}
+
+function closeCropModal(){
+  if(cropperInstance){ cropperInstance.destroy(); cropperInstance = null; }
+  if(cropObjectUrl){ URL.revokeObjectURL(cropObjectUrl); cropObjectUrl = null; }
+  cropImageEl.src = '';
+  cropModalEl.style.display = 'none';
+}
+
+initCropModal();
+
 // ---------- Photos ----------
 // Stockage des photos par champ : { fieldKey: [ {dataUrl, w, h} ] }
 const photoStore = {};
@@ -1172,22 +1348,36 @@ function buildMediaUI(item){
   const thumbsRow = document.createElement('div');
   thumbsRow.className = 'media-row';
 
-  function handleFile(fileInput){
+  async function handleFile(fileInput){
     const file = fileInput.files[0];
-    if(!file) return;
-    pendingPhotoOps++;
-    resizeImage(file).then(photo=>{
-      photoStore[key].push(photo);
-      renderThumbs();
-      item.classList.add('filled');
-      idbSetPhotos(key, photoStore[key]);
-      scheduleSave();
-    }).catch(()=>{
-      /* photo illisible : on l'ignore plutôt que de bloquer la saisie */
-    }).finally(()=>{
-      pendingPhotoOps--;
-    });
     fileInput.value = '';
+    if(!file) return;
+
+    let photo;
+    try{
+      if(typeof Cropper !== 'undefined'){
+        // Fenêtre de recadrage avant ajout : l'utilisateur peut ajuster le cadrage, ou
+        // annuler (dans ce cas openCropModal résout avec null et on n'ajoute rien).
+        const canvas = await openCropModal(file);
+        if(!canvas) return;
+        pendingPhotoOps++;
+        try{ photo = canvasToPhoto(canvas); } finally { pendingPhotoOps--; }
+      } else {
+        // Repli si la librairie de recadrage n'a pas pu être chargée (ex. pas de réseau) :
+        // on ajoute la photo directement, sans recadrage, comme avant.
+        pendingPhotoOps++;
+        try{ photo = await resizeImage(file); } finally { pendingPhotoOps--; }
+      }
+    }catch(e){
+      /* photo illisible : on l'ignore plutôt que de bloquer la saisie */
+      return;
+    }
+
+    photoStore[key].push(photo);
+    renderThumbs();
+    item.classList.add('filled');
+    idbSetPhotos(key, photoStore[key]);
+    scheduleSave();
   }
   cameraInput.addEventListener('change', ()=> handleFile(cameraInput));
   galleryInput.addEventListener('change', ()=> handleFile(galleryInput));
