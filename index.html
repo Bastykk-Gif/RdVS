@@ -1192,9 +1192,50 @@ function canvasToPhoto(srcCanvas){
 // Une seule instance de Cropper.js est créée à la fois : la fenêtre est réutilisée pour
 // n'importe quel champ, on sait pour laquelle relancer le traitement grâce à la Promise
 // retournée par openCropModal().
+const CROP_SOURCE_MAX_DIM = 2000;
+
+// Prépare le fichier avant de l'ouvrir dans Cropper.js : corrige l'orientation EXIF et
+// redessine l'image sur un canvas (donc sans métadonnées EXIF) redimensionné à une taille
+// raisonnable. Sans cette étape, une photo issue de la galerie (souvent en pleine résolution
+// capteur, avec un EXIF riche : GPS, vignette, notes constructeur...) pouvait faire échouer
+// silencieusement l'analyse d'orientation interne de Cropper.js ou dépasser les limites
+// mémoire du canvas sur mobile — alors qu'une photo prise en direct via l'appareil (résolution
+// de capture souvent plus modeste) passait sans problème. En repartant systématiquement d'un
+// JPEG "propre" généré ici, les deux sources sont traitées de façon identique.
+async function prepareImageForCrop(file){
+  let bitmap;
+  try{
+    bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+  }catch(e){
+    bitmap = await new Promise((resolve, reject)=>{
+      const reader = new FileReader();
+      reader.onload = ()=>{
+        const img = new Image();
+        img.onload = ()=> resolve(img);
+        img.onerror = reject;
+        img.src = reader.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+  const srcW = bitmap.width || bitmap.naturalWidth;
+  const srcH = bitmap.height || bitmap.naturalHeight;
+  const scale = Math.min(1, CROP_SOURCE_MAX_DIM / Math.max(srcW, srcH));
+  const w = Math.max(1, Math.round(srcW * scale));
+  const h = Math.max(1, Math.round(srcH * scale));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+  if(bitmap.close) bitmap.close();
+
+  return canvas.toDataURL('image/jpeg', 0.92);
+}
+
 let cropperInstance = null;
 let cropResolve = null;
-let cropObjectUrl = null;
 let cropModalEl, cropImageEl, cropCancelBtn, cropConfirmBtn;
 
 function initCropModal(){
@@ -1220,11 +1261,18 @@ function initCropModal(){
   });
 }
 
-function openCropModal(file){
+async function openCropModal(file){
+  // L'image est déjà orientée/redimensionnée en dataURL (sans EXIF) avant d'être confiée à
+  // Cropper.js : voir le commentaire de prepareImageForCrop ci-dessus.
+  let dataUrl;
+  try{
+    dataUrl = await prepareImageForCrop(file);
+  }catch(e){
+    return null; // photo illisible : on abandonne le recadrage pour ce fichier
+  }
   return new Promise((resolve)=>{
     cropResolve = resolve;
-    cropObjectUrl = URL.createObjectURL(file);
-    cropImageEl.src = cropObjectUrl;
+    cropImageEl.src = dataUrl;
     cropModalEl.style.display = 'flex';
     cropImageEl.onload = ()=>{
       if(cropperInstance) cropperInstance.destroy();
@@ -1233,7 +1281,7 @@ function openCropModal(file){
         autoCropArea: 0.95,
         background: false,
         responsive: true,
-        checkOrientation: true
+        checkOrientation: false
       });
     };
   });
@@ -1241,7 +1289,6 @@ function openCropModal(file){
 
 function closeCropModal(){
   if(cropperInstance){ cropperInstance.destroy(); cropperInstance = null; }
-  if(cropObjectUrl){ URL.revokeObjectURL(cropObjectUrl); cropObjectUrl = null; }
   cropImageEl.src = '';
   cropModalEl.style.display = 'none';
 }
