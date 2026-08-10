@@ -331,6 +331,40 @@
   .media-add:hover{border-color:var(--amber); background:var(--amber-soft);}
   .media-add svg{width:20px;height:20px;}
 
+  .media-add-wrap{position:relative; display:inline-flex;}
+  .media-menu{
+    position:absolute;
+    top:110%;
+    right:0;
+    z-index:20;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:10px;
+    box-shadow:0 6px 18px rgba(0,0,0,0.15);
+    padding:6px;
+    min-width:200px;
+  }
+  .media-menu-opt{
+    display:block;
+    width:100%;
+    text-align:left;
+    background:transparent;
+    border:none;
+    padding:9px 10px;
+    font-size:13.5px;
+    color:var(--ink);
+    border-radius:6px;
+    cursor:pointer;
+  }
+  .media-menu-opt:hover{background:var(--amber-soft);}
+  .media-menu-hint{
+    padding:7px 10px 3px;
+    font-size:11px;
+    color:var(--gray-off);
+    border-top:1px solid var(--line);
+    margin-top:4px;
+  }
+
   /* Actions à mener */
   .actions-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch;}
   table.actions-table{
@@ -424,6 +458,37 @@
     transition:all .15s ease;
   }
   .add-row-btn:hover{border-color:var(--amber); background:var(--amber-soft);}
+
+  /* Tableau Cas particuliers */
+  table.cas-table th{background:#E9EBEF;}
+  table.cas-table th.col-nom{width:30%;}
+  table.cas-table th.col-box{width:18%;}
+  table.cas-table th.col-comment{width:52%;}
+  table.actions-table input.nom-input,
+  table.actions-table input.box-input{
+    width:100%;
+    border:none;
+    font-family:var(--font-body);
+    font-size:14px;
+    color:var(--ink);
+    background:transparent;
+    padding:4px 2px;
+  }
+  table.actions-table input.nom-input:focus,
+  table.actions-table input.box-input:focus{outline:none;}
+  table.actions-table textarea.comment-input{
+    width:100%;
+    border:none;
+    resize:vertical;
+    min-height:38px;
+    font-family:var(--font-body);
+    font-size:14px;
+    color:var(--ink);
+    background:transparent;
+    padding:2px;
+    line-height:1.4;
+  }
+  table.actions-table textarea.comment-input:focus{outline:none;}
 
   .reset-bar{
     display:flex;
@@ -577,6 +642,27 @@
         <label>Discussion sur les cas particuliers</label>
         <button type="button" class="ras-btn">RAS</button>
         <textarea placeholder="Commentaires"></textarea>
+        <div class="actions-wrap">
+          <table class="actions-table cas-table" id="casTable">
+            <thead>
+              <tr>
+                <th class="col-nom">Nom Prénom</th>
+                <th class="col-box">Box n°</th>
+                <th class="col-comment">Commentaires</th>
+                <th class="col-rm"></th>
+              </tr>
+            </thead>
+            <tbody id="casBody">
+              <tr>
+                <td><input type="text" class="nom-input" placeholder="Nom Prénom"></td>
+                <td><input type="text" class="box-input" placeholder="N° de box"></td>
+                <td><textarea class="comment-input" placeholder="Commentaires"></textarea></td>
+                <td class="rm-cell"><button type="button" class="row-rm" title="Supprimer la ligne">×</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <button type="button" id="addCasRowBtn" class="add-row-btn">+ Ajouter une ligne</button>
       </div>
       <div class="item ras-item" data-field="bad_inventaires">
         <label>Préparation et suivi des inventaires</label>
@@ -615,8 +701,13 @@
         <button type="button" class="ras-btn">RAS</button>
         <textarea placeholder="Propreté, éclairage, encombrement..."></textarea>
       </div>
+      <div class="item ras-item" data-field="int_statut_box">
+        <label>Statut des box</label>
+        <button type="button" class="ras-btn">RAS</button>
+        <textarea placeholder="maintenance, impayés..."></textarea>
+      </div>
       <div class="item ras-item" data-field="int_communautaire">
-        <label>Zone communautaire (salle de déjeuner)</label>
+        <label>Espace détente clients</label>
         <button type="button" class="ras-btn">RAS</button>
         <textarea placeholder="Propreté, équipements..."></textarea>
       </div>
@@ -670,7 +761,7 @@
         <textarea placeholder="Fonctionnement, contenu diffusé..."></textarea>
       </div>
       <div class="item ras-item" data-field="acc_cuisine">
-        <label>Espace cuisine</label>
+        <label>Salle de pause Staff</label>
         <button type="button" class="ras-btn">RAS</button>
         <textarea placeholder="Propreté, équipements, stock..."></textarea>
       </div>
@@ -728,7 +819,7 @@ function scheduleSave(){
 }
 
 function collectState(){
-  const state = { fields:{}, items:{}, actions:[] };
+  const state = { fields:{}, items:{}, actions:[], casRows:[] };
   ['visitDate','siteSelect','managerInput','teamInput','googleCount'].forEach(id=>{
     const el = document.getElementById(id);
     if(el) state.fields[id] = el.value;
@@ -751,6 +842,13 @@ function collectState(){
       action: tr.querySelector('.action-input').value,
       delai: tr.querySelector('.delai-input').value,
       qui: tr.querySelector('.qui-input').value
+    });
+  });
+  document.querySelectorAll('#casBody tr').forEach(tr=>{
+    state.casRows.push({
+      nom: tr.querySelector('.nom-input').value,
+      box: tr.querySelector('.box-input').value,
+      comment: tr.querySelector('.comment-input').value
     });
   });
   return state;
@@ -809,6 +907,23 @@ function restoreState(){
         tr.querySelector('.qui-input').value = a.qui || '';
         tbody.appendChild(tr);
         wireActionRow(tr);
+      });
+    }
+  }
+
+  if(state.casRows && state.casRows.length){
+    const meaningfulCas = state.casRows.filter(a=> (a.nom || a.box || a.comment));
+    if(meaningfulCas.length){
+      const tbody = document.getElementById('casBody');
+      tbody.innerHTML = '';
+      meaningfulCas.forEach(a=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = casRowTemplate;
+        tr.querySelector('.nom-input').value = a.nom || '';
+        tr.querySelector('.box-input').value = a.box || '';
+        tr.querySelector('.comment-input').value = a.comment || '';
+        tbody.appendChild(tr);
+        wireCasRow(tr);
       });
     }
   }
@@ -977,21 +1092,48 @@ function buildMediaUI(item){
   const headRow = document.createElement('div');
   headRow.className = 'item-head';
 
-  const addLabel = document.createElement('label');
-  addLabel.className = 'media-add';
-  addLabel.title = "Prendre une photo ou choisir dans la galerie";
-  addLabel.innerHTML = cameraIconSVG;
+  const addWrap = document.createElement('div');
+  addWrap.className = 'media-add-wrap';
 
-  const fileInput = document.createElement('input');
-  fileInput.type = 'file';
-  fileInput.accept = 'image/*';
-  fileInput.style.position = 'absolute';
-  fileInput.style.width = '1px';
-  fileInput.style.height = '1px';
-  fileInput.style.opacity = '0';
-  fileInput.style.overflow = 'hidden';
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'media-add';
+  addBtn.title = "Ajouter une photo";
+  addBtn.innerHTML = cameraIconSVG;
 
-  addLabel.appendChild(fileInput);
+  const menu = document.createElement('div');
+  menu.className = 'media-menu';
+  menu.style.display = 'none';
+  menu.innerHTML =
+    '<button type="button" class="media-menu-opt" data-mode="camera">📷 Prendre une photo</button>' +
+    '<button type="button" class="media-menu-opt" data-mode="gallery">🖼️ Depuis la galerie</button>' +
+    '<div class="media-menu-hint">Format paysage préférable</div>';
+
+  // Deux entrées de fichier distinctes : "capture=environment" force l'ouverture directe de
+  // l'appareil photo sur mobile, tandis que l'entrée sans capture ouvre la galerie/pellicule.
+  const cameraInput = document.createElement('input');
+  cameraInput.type = 'file';
+  cameraInput.accept = 'image/*';
+  cameraInput.capture = 'environment';
+  cameraInput.style.position = 'absolute';
+  cameraInput.style.width = '1px';
+  cameraInput.style.height = '1px';
+  cameraInput.style.opacity = '0';
+  cameraInput.style.overflow = 'hidden';
+
+  const galleryInput = document.createElement('input');
+  galleryInput.type = 'file';
+  galleryInput.accept = 'image/*';
+  galleryInput.style.position = 'absolute';
+  galleryInput.style.width = '1px';
+  galleryInput.style.height = '1px';
+  galleryInput.style.opacity = '0';
+  galleryInput.style.overflow = 'hidden';
+
+  addWrap.appendChild(addBtn);
+  addWrap.appendChild(menu);
+  addWrap.appendChild(cameraInput);
+  addWrap.appendChild(galleryInput);
 
   if(label){
     label.parentNode.insertBefore(headRow, label);
@@ -999,12 +1141,38 @@ function buildMediaUI(item){
   } else {
     item.insertBefore(headRow, item.firstChild);
   }
-  headRow.appendChild(addLabel);
+  headRow.appendChild(addWrap);
+
+  function closeMenu(){
+    menu.classList.remove('open');
+    menu.style.display = 'none';
+  }
+  addBtn.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    document.querySelectorAll('.media-menu.open').forEach(m=>{
+      if(m !== menu){ m.classList.remove('open'); m.style.display = 'none'; }
+    });
+    const isOpen = menu.classList.toggle('open');
+    menu.style.display = isOpen ? 'block' : 'none';
+  });
+  document.addEventListener('click', (e)=>{
+    if(!addWrap.contains(e.target)) closeMenu();
+  });
+  menu.querySelector('[data-mode="camera"]').addEventListener('click', (e)=>{
+    e.stopPropagation();
+    closeMenu();
+    cameraInput.click();
+  });
+  menu.querySelector('[data-mode="gallery"]').addEventListener('click', (e)=>{
+    e.stopPropagation();
+    closeMenu();
+    galleryInput.click();
+  });
 
   const thumbsRow = document.createElement('div');
   thumbsRow.className = 'media-row';
 
-  fileInput.addEventListener('change', ()=>{
+  function handleFile(fileInput){
     const file = fileInput.files[0];
     if(!file) return;
     pendingPhotoOps++;
@@ -1020,7 +1188,9 @@ function buildMediaUI(item){
       pendingPhotoOps--;
     });
     fileInput.value = '';
-  });
+  }
+  cameraInput.addEventListener('change', ()=> handleFile(cameraInput));
+  galleryInput.addEventListener('change', ()=> handleFile(galleryInput));
 
   function renderThumbs(){
     thumbsRow.innerHTML = '';
@@ -1089,9 +1259,6 @@ document.querySelectorAll('.ras-btn').forEach(btn=>{
   });
 });
 
-// ---------- Restauration du brouillon ----------
-restoreState();
-
 // ---------- Remise à zéro du formulaire ----------
 document.getElementById('resetBtn').addEventListener('click', ()=>{
   const ok = window.confirm("Êtes-vous sûr de vouloir effacer tout le contenu du formulaire ?");
@@ -1132,6 +1299,14 @@ document.getElementById('resetBtn').addEventListener('click', ()=>{
   tbody.appendChild(tr);
   wireActionRow(tr);
 
+  // Tableau Cas particuliers : retour à une seule ligne vierge
+  const casTbody = document.getElementById('casBody');
+  casTbody.innerHTML = '';
+  const casTr = document.createElement('tr');
+  casTr.innerHTML = casRowTemplate;
+  casTbody.appendChild(casTr);
+  wireCasRow(casTr);
+
   try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
   idbClearAll();
 
@@ -1146,6 +1321,37 @@ const actionRowTemplate = `
   <td><input type="text" class="qui-input" placeholder="Nom"></td>
   <td class="rm-cell"><button type="button" class="row-rm" title="Supprimer la ligne">×</button></td>
 `;
+
+const casRowTemplate = `
+  <td><input type="text" class="nom-input" placeholder="Nom Prénom"></td>
+  <td><input type="text" class="box-input" placeholder="N° de box"></td>
+  <td><textarea class="comment-input" placeholder="Commentaires"></textarea></td>
+  <td class="rm-cell"><button type="button" class="row-rm" title="Supprimer la ligne">×</button></td>
+`;
+
+// ---------- Tableau Cas particuliers ----------
+function wireCasRow(tr){
+  const rmBtn = tr.querySelector('.row-rm');
+  rmBtn.addEventListener('click', ()=>{
+    const tbody = document.getElementById('casBody');
+    if(tbody.children.length > 1){
+      tr.remove();
+    } else {
+      tr.querySelectorAll('textarea, input').forEach(el=> el.value = '');
+    }
+    if(tbody.children.length === 0){
+      const newTr = document.createElement('tr');
+      newTr.innerHTML = casRowTemplate;
+      tbody.appendChild(newTr);
+      wireCasRow(newTr);
+    }
+    scheduleSave();
+  });
+  tr.querySelectorAll('textarea, input').forEach(el=>{
+    el.addEventListener('input', scheduleSave);
+    el.addEventListener('change', scheduleSave);
+  });
+}
 
 function wireDateWrap(wrap){
   const input = wrap.querySelector('input[type=date]');
@@ -1192,6 +1398,23 @@ document.getElementById('addRowBtn').addEventListener('click', ()=>{
   scheduleSave();
 });
 
+document.querySelectorAll('#casBody tr').forEach(wireCasRow);
+
+document.getElementById('addCasRowBtn').addEventListener('click', ()=>{
+  const tbody = document.getElementById('casBody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = casRowTemplate;
+  tbody.appendChild(tr);
+  wireCasRow(tr);
+  scheduleSave();
+});
+
+// ---------- Restauration du brouillon ----------
+// Appelé ici, une fois tous les gabarits de lignes (actions, cas particuliers) et leurs
+// fonctions de câblage définis, pour éviter une erreur si un brouillon sauvegardé contient
+// des lignes de tableau à recréer.
+restoreState();
+
 document.getElementById('exportBtn').addEventListener('click', async ()=>{
   const status = document.getElementById('statusMsg');
 
@@ -1237,7 +1460,8 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
       {title:"Intérieur", items:[
         ["Zone livraison","int_livraison"],
         ["Couloirs","int_couloirs"],
-        ["Zone communautaire (salle de déjeuner)","int_communautaire"],
+        ["Statut des box","int_statut_box"],
+        ["Espace détente clients","int_communautaire"],
         ["Sanitaire clients","int_sanitaires"],
         ["Divers Intérieur","int_divers"]
       ]},
@@ -1251,7 +1475,7 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
         ["Bureaux staff","acc_bureaux"],
         ["Salon & marchandises","acc_salon"],
         ["Écran TV","acc_ecran"],
-        ["Espace cuisine","acc_cuisine"],
+        ["Salle de pause Staff","acc_cuisine"],
         ["Divers Accueil","acc_divers"]
       ]}
     ]}
@@ -1373,6 +1597,64 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
     writeImages(fieldKey);
   }
 
+  function writeCasTable(){
+    const casRows = Array.from(document.querySelectorAll('#casBody tr')).map(tr=>({
+      nom: tr.querySelector('.nom-input').value.trim(),
+      box: tr.querySelector('.box-input').value.trim(),
+      comment: tr.querySelector('.comment-input').value.trim()
+    })).filter(r=> r.nom || r.box || r.comment);
+
+    if(!casRows.length) return;
+
+    checkPage(26);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(10.5);
+    doc.setTextColor(60,60,60);
+    doc.text('Cas particuliers :', marginX, y_);
+    doc.setTextColor(0,0,0);
+    y_ += 14;
+
+    const tableW2 = pageW - marginX*2;
+    const colNom = tableW2 * 0.30;
+    const colBox = tableW2 * 0.18;
+    const colComment = tableW2 * 0.52;
+    const rowPad2 = 6;
+
+    checkPage(20);
+    doc.setFillColor(233,235,239);
+    doc.rect(marginX, y_, tableW2, 20, 'F');
+    doc.setDrawColor(225,228,234);
+    doc.rect(marginX, y_, tableW2, 20);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(9.5);
+    doc.setTextColor(NAVY[0],NAVY[1],NAVY[2]);
+    doc.text('Nom Prénom', marginX+6, y_+13);
+    doc.text('Box n°', marginX+colNom+6, y_+13);
+    doc.text('Commentaires', marginX+colNom+colBox+6, y_+13);
+    y_ += 20;
+
+    doc.setFont('helvetica','italic');
+    doc.setFontSize(9.5);
+    doc.setTextColor(ANSWER_COLOR[0],ANSWER_COLOR[1],ANSWER_COLOR[2]);
+    casRows.forEach(row=>{
+      const nomLines = doc.splitTextToSize(row.nom || '—', colNom - 12);
+      const boxLines = doc.splitTextToSize(row.box || '—', colBox - 12);
+      const commentLines = doc.splitTextToSize(row.comment || '—', colComment - 12);
+      const maxLines = Math.max(nomLines.length, boxLines.length, commentLines.length);
+      const rowH = maxLines*11 + rowPad2*2;
+      checkPage(rowH);
+      doc.setDrawColor(225,228,234);
+      doc.rect(marginX, y_, tableW2, rowH);
+      doc.text(nomLines, marginX+6, y_+rowPad2+8);
+      doc.text(boxLines, marginX+colNom+6, y_+rowPad2+8);
+      doc.text(commentLines, marginX+colNom+colBox+6, y_+rowPad2+8);
+      y_ += rowH;
+    });
+    doc.setFont('helvetica','normal');
+    doc.setTextColor(0,0,0);
+    y_ += 10;
+  }
+
   // ---------- ACTIONS À MENER (positionné après Infos, avant Business) ----------
   const actionRows = Array.from(document.querySelectorAll('#actionsBody tr')).map(tr=>{
     const rawDelai = tr.querySelector('.delai-input').value.trim();
@@ -1457,7 +1739,10 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
       doc.text(part.title, marginX, y_);
       doc.setTextColor(0,0,0);
       y_ += 16;
-      part.items.forEach(([label,key])=> writeItem(label,key));
+      part.items.forEach(([label,key])=> {
+        writeItem(label,key);
+        if(key === 'bad_cas') writeCasTable();
+      });
       y_ += 4;
     });
   });
