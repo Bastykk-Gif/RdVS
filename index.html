@@ -703,6 +703,13 @@
     <h1>Business</h1>
     <div class="major-inner">
 
+      <div class="part-header"><h2>Classeur bleu</h2></div>
+      <div class="item ras-item" data-field="acc_classeur">
+        <label>Classeur bleu</label>
+        <button type="button" class="ras-btn">RAS</button>
+        <textarea placeholder="Contrôle des dernières checklist quotidienne, du tableau des KPI mensuels, documents d'infos site..."></textarea>
+      </div>
+
       <div class="part-header"><h2>Commerce</h2></div>
       <div class="item" data-field="com_leads">
         <label>Étude et appels des leads « Besoin &lt; 1 semaine »</label>
@@ -820,11 +827,6 @@
       </div>
 
       <div class="part-header"><h2>Accueil</h2></div>
-      <div class="item ras-item" data-field="acc_classeur">
-        <label>Classeur bleu</label>
-        <button type="button" class="ras-btn">RAS</button>
-        <textarea placeholder="Contrôle des dernières checklist quotidienne, du tableau des KPI mensuels, documents d'infos site..."></textarea>
-      </div>
       <div class="item ras-item" data-field="acc_bureaux">
         <label>Bureaux staff</label>
         <button type="button" class="ras-btn">RAS</button>
@@ -1680,6 +1682,9 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
 
   const sections = [
     {major:"Business", parts:[
+      {title:"Classeur bleu", items:[
+        ["Classeur bleu","acc_classeur"]
+      ]},
       {title:"Commerce", items:[
         ["Étude et appels des leads « Besoin < 1 semaine »","com_leads"],
         ["Coaching (écoute Aircall)","com_coaching"]
@@ -1708,7 +1713,6 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
         ["Divers Extérieur","ext_divers"]
       ]},
       {title:"Accueil", items:[
-        ["Classeur bleu","acc_classeur"],
         ["Bureaux staff","acc_bureaux"],
         ["Salon & marchandises","acc_salon"],
         ["Écran TV","acc_ecran"],
