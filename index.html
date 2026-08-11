@@ -495,32 +495,25 @@
   .reset-bar{
     display:flex;
     align-items:center;
-    justify-content:space-between;
+    justify-content:flex-end;
     gap:10px;
+    flex-wrap:wrap;
     margin-bottom:16px;
   }
-  .sync-status{
+  .draft-btn{
     font-family:var(--font-mono);
-    font-size:10.5px;
-    letter-spacing:0.4px;
-    color:var(--gray-off);
-    display:flex;
-    align-items:center;
-    gap:6px;
+    font-size:11px;
+    letter-spacing:0.6px;
+    text-transform:uppercase;
+    background:transparent;
+    color:var(--navy);
+    border:1.5px solid var(--navy);
+    padding:8px 16px;
+    border-radius:20px;
+    cursor:pointer;
+    transition:all .15s ease;
   }
-  .sync-status .dot{
-    width:7px;
-    height:7px;
-    border-radius:50%;
-    background:var(--gray-off);
-    flex-shrink:0;
-  }
-  .sync-status.synced .dot{background:#2E8B57;}
-  .sync-status.syncing .dot{background:var(--amber);}
-  .sync-status.offline .dot{background:#B4732B;}
-  @media print{
-    .sync-status{display:none !important;}
-  }
+  .draft-btn:hover{background:var(--navy); color:#fff;}
   #resetBtn{
     font-family:var(--font-mono);
     font-size:11px;
@@ -676,7 +669,9 @@
   </header>
 
   <div class="reset-bar">
-    <div class="sync-status" id="syncStatus"></div>
+    <button type="button" class="draft-btn" id="exportDraftBtn">Exporter le brouillon</button>
+    <button type="button" class="draft-btn" id="importDraftBtn">Importer un brouillon</button>
+    <input type="file" id="importDraftInput" accept=".json,application/json" style="display:none;">
     <button type="button" id="resetBtn">Remise à zéro du formulaire</button>
   </div>
 
@@ -931,159 +926,6 @@
   </div>
 </div>
 
-<!--
-  ======================================================================
-  SYNCHRONISATION CLOUD (Firebase Firestore)
-  ======================================================================
-  Permet de commencer une visite sur un appareil (téléphone) et de la
-  continuer sur un autre (PC) : textes, tableaux et photos se synchronisent
-  automatiquement dès que les champs Date + Site + Manager sont identiques
-  sur les deux appareils.
-
-  CONFIGURATION REQUISE : remplacez les valeurs "REMPLACER_MOI" ci-dessous
-  par celles de votre projet Firebase (Console Firebase → Paramètres du
-  projet → Vos applications → Web → objet firebaseConfig).
-  Tant que apiKey vaut "REMPLACER_MOI", la synchronisation reste désactivée
-  et le formulaire fonctionne exactement comme avant (sauvegarde locale
-  uniquement, sur cet appareil) : ce fichier peut être utilisé sans risque
-  avant configuration.
--->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
-  import {
-    getFirestore, doc, setDoc, onSnapshot, collection, addDoc, deleteDoc,
-    serverTimestamp, query, orderBy
-  } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
-  import {
-    getAuth, signInAnonymously, onAuthStateChanged
-  } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyDNdarVam-y6ycNa4g70ApoOVZXLeyQhms",
-    authDomain: "rdvs-b63a1.firebaseapp.com",
-    projectId: "rdvs-b63a1",
-    storageBucket: "rdvs-b63a1.firebasestorage.app",
-    messagingSenderId: "224522211114",
-    appId: "1:224522211114:web:2722d9de166ba03d6c5853"
-  };
-  const CLOUD_SYNC_ENABLED = !!(firebaseConfig.apiKey && firebaseConfig.apiKey !== "REMPLACER_MOI");
-
-  // Identifiant unique à ce chargement de page : on l'attache à chaque écriture Firestore
-  // pour pouvoir ignorer, dans nos propres écouteurs onSnapshot, les échos de nos propres
-  // écritures (Firestore notifie aussi l'appareil qui vient d'écrire) — sans ce filtrage, un
-  // appareil pourrait ré-appliquer sa propre donnée en boucle ou dupliquer ses propres photos.
-  const writerId = Math.random().toString(36).slice(2) + Date.now().toString(36);
-
-  let db = null, auth = null;
-  let readyResolve;
-  let ready = new Promise(r=>{ readyResolve = r; });
-
-  if(CLOUD_SYNC_ENABLED){
-    try{
-      const app = initializeApp(firebaseConfig);
-      db = getFirestore(app);
-      auth = getAuth(app);
-      let settled = false;
-      onAuthStateChanged(auth, (user)=>{
-        if(settled) return;
-        settled = true;
-        readyResolve(!!user);
-      });
-      signInAnonymously(auth).catch(()=>{
-        if(!settled){ settled = true; readyResolve(false); }
-      });
-    }catch(e){
-      readyResolve(false);
-    }
-  } else {
-    readyResolve(false);
-  }
-
-  let currentDocId = null;
-  let unsubDoc = null;
-  let unsubPhotos = null;
-  let onRemoteStateCb = null;
-  let onRemotePhotoCb = null;
-  let onStatusCb = null;
-
-  function setStatus(s){ if(onStatusCb) onStatusCb(s); }
-
-  async function setDocId(id){
-    const isReady = await ready;
-    if(!isReady || !db){ setStatus('offline'); return; }
-    if(id === currentDocId) return;
-    if(unsubDoc){ unsubDoc(); unsubDoc = null; }
-    if(unsubPhotos){ unsubPhotos(); unsubPhotos = null; }
-    currentDocId = id;
-    if(!id) return;
-
-    setStatus('syncing');
-
-    unsubDoc = onSnapshot(doc(db, 'visites', id), (snap)=>{
-      const data = snap.data();
-      setStatus('synced');
-      if(!data || data.writerId === writerId) return;
-      if(onRemoteStateCb) onRemoteStateCb(data.state || {});
-    }, ()=> setStatus('offline'));
-
-    unsubPhotos = onSnapshot(
-      query(collection(db, 'visites', id, 'photos'), orderBy('order')),
-      (snap)=>{
-        snap.docChanges().forEach(change=>{
-          const data = change.doc.data();
-          if(data.writerId === writerId) return;
-          if(change.type === 'removed'){
-            if(onRemotePhotoCb) onRemotePhotoCb('removed', { id: change.doc.id, field: data.field });
-          } else {
-            if(onRemotePhotoCb) onRemotePhotoCb('added', { id: change.doc.id, field: data.field, dataUrl: data.dataUrl, w: data.w, h: data.h });
-          }
-        });
-      },
-      ()=> setStatus('offline')
-    );
-  }
-
-  async function pushState(state){
-    if(!(await ready) || !currentDocId || !db) return;
-    try{
-      setStatus('syncing');
-      await setDoc(doc(db, 'visites', currentDocId), { state, writerId, updatedAt: serverTimestamp() }, { merge: true });
-      setStatus('synced');
-    }catch(e){ setStatus('offline'); }
-  }
-
-  let photoOrderCounter = Date.now();
-  async function pushPhotoAdd(field, photo){
-    if(!(await ready) || !currentDocId || !db) return null;
-    try{
-      const ref = await addDoc(collection(db, 'visites', currentDocId, 'photos'), {
-        field, dataUrl: photo.dataUrl, w: photo.w, h: photo.h,
-        order: photoOrderCounter++, writerId
-      });
-      return ref.id;
-    }catch(e){ return null; }
-  }
-
-  async function pushPhotoRemove(photoId){
-    if(!(await ready) || !currentDocId || !db || !photoId) return;
-    try{ await deleteDoc(doc(db, 'visites', currentDocId, 'photos', photoId)); }
-    catch(e){ /* ignore */ }
-  }
-
-  window.CloudSync = {
-    enabled: CLOUD_SYNC_ENABLED,
-    ready,
-    setDocId,
-    pushState,
-    pushPhotoAdd,
-    pushPhotoRemove,
-    onRemoteState(cb){ onRemoteStateCb = cb; },
-    onRemotePhoto(cb){ onRemotePhotoCb = cb; },
-    onStatus(cb){ onStatusCb = cb; }
-  };
-  window.dispatchEvent(new Event('cloudsync-ready'));
-</script>
-
 <script>
 // ---------- Sauvegarde automatique locale ----------
 const STORAGE_KEY = 'lockall_visite_draft_v1';
@@ -1134,9 +976,6 @@ function saveState(){
   try{
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }catch(e){ /* stockage indisponible : abandon silencieux (texte uniquement, donc rare) */ }
-  // Synchronisation cloud (Firebase) si configurée : voir le module en haut du fichier.
-  // Sans configuration, window.CloudSync.enabled est false et cet appel ne fait rien.
-  if(window.CloudSync && window.CloudSync.enabled) window.CloudSync.pushState(state);
 }
 
 // Applique un état (au format produit par collectState()) aux champs du formulaire. Utilisé
@@ -1655,11 +1494,6 @@ function buildMediaUI(item){
       item.classList.add('filled');
       idbSetPhotos(key, photoStore[key]);
       scheduleSave();
-      if(window.CloudSync && window.CloudSync.enabled){
-        window.CloudSync.pushPhotoAdd(key, photo).then(cloudId=>{
-          if(cloudId) photo.cloudId = cloudId;
-        });
-      }
     } finally {
       pendingPhotoOps--;
     }
@@ -1684,9 +1518,6 @@ function buildMediaUI(item){
         renderThumbs();
         idbSetPhotos(key, photoStore[key]);
         scheduleSave();
-        if(window.CloudSync && window.CloudSync.enabled && removed && removed.cloudId){
-          window.CloudSync.pushPhotoRemove(removed.cloudId);
-        }
       });
       thumb.appendChild(im);
       thumb.appendChild(rm);
@@ -1716,10 +1547,7 @@ document.querySelectorAll('.item textarea, .infocard-grid textarea, .infocard-gr
 document.getElementById('siteSelect').addEventListener('change', scheduleSave);
 document.getElementById('visitDate').addEventListener('change', scheduleSave);
 
-// ---------- Synchronisation cloud : identifiant de visite partagé entre appareils ----------
-// Dérivé de Date + Site + Manager (nettoyés en minuscules sans accents) : dès que ces trois
-// champs sont identiques sur deux appareils, ils pointent vers le même document Firestore et
-// se synchronisent automatiquement — pas besoin de code ou de lien à copier manuellement.
+// ---------- Nom de fichier export/import : identifiant de visite dérivé de Date + Site + Manager ----------
 function slugPart(v){
   return (v || '')
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -1734,14 +1562,6 @@ function computeVisitDocId(){
   if(!site || !date || !manager) return null;
   return `${date}_${site}_${manager}`;
 }
-function refreshCloudBinding(){
-  if(!window.CloudSync || !window.CloudSync.enabled) return;
-  window.CloudSync.setDocId(computeVisitDocId());
-}
-document.getElementById('siteSelect').addEventListener('change', refreshCloudBinding);
-document.getElementById('visitDate').addEventListener('change', refreshCloudBinding);
-document.getElementById('managerInput').addEventListener('input', refreshCloudBinding);
-document.getElementById('managerInput').addEventListener('change', refreshCloudBinding);
 
 // ---------- RAS ----------
 document.querySelectorAll('.ras-btn').forEach(btn=>{
@@ -1921,52 +1741,75 @@ document.getElementById('addCasRowBtn').addEventListener('click', ()=>{
 // des lignes de tableau à recréer.
 restoreState();
 
-// ---------- Synchronisation cloud : câblage des callbacks + indicateur visuel ----------
-// Le module Firebase (en haut du fichier) charge de façon différée : window.CloudSync peut
-// ne pas encore exister à cet instant, d'où l'écoute de l'événement 'cloudsync-ready' en repli.
-(function setupCloudSync(){
-  const statusEl = document.getElementById('syncStatus');
-  const statusLabels = {
-    synced: 'Synchronisé',
-    syncing: 'Synchronisation…',
-    offline: 'Hors ligne (sauvegarde locale uniquement)'
-  };
-  function renderStatus(s){
-    if(!statusEl) return;
-    statusEl.className = 'sync-status' + (s ? ' ' + s : '');
-    statusEl.innerHTML = '<span class="dot"></span>' + (statusLabels[s] || '');
-  }
+// ---------- Export / import manuel du brouillon (texte + tableaux + photos) ----------
+// Permet de commencer une visite sur un appareil (téléphone) et de la continuer sur un
+// autre (PC) : on exporte un fichier .json depuis le premier appareil, puis on l'importe
+// dans le second — aucune connexion réseau ni compte requis.
+function exportDraft(){
+  const state = collectState();
+  const photos = {};
+  Object.keys(photoStore).forEach(key=>{
+    if(photoStore[key] && photoStore[key].length) photos[key] = photoStore[key];
+  });
+  const payload = { type: 'lockall-visite-brouillon', version: 1, state, photos };
+  const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const site = slugPart(document.getElementById('siteSelect').value) || 'site';
+  const date = document.getElementById('visitDate').value || '';
+  const manager = slugPart(document.getElementById('managerInput').value) || '';
+  const namePart = [date, site, manager].filter(Boolean).join('_');
+  a.href = url;
+  a.download = `brouillon-visite${namePart ? '_' + namePart : ''}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=> URL.revokeObjectURL(url), 1000);
+}
 
-  function start(){
-    if(!window.CloudSync) return;
-    if(!window.CloudSync.enabled){
-      renderStatus('offline');
+function importDraft(file){
+  const status = document.getElementById('statusMsg');
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    let payload;
+    try{
+      payload = JSON.parse(reader.result);
+    }catch(e){
+      if(status) status.textContent = "Fichier de brouillon illisible (JSON invalide).";
       return;
     }
-    window.CloudSync.onStatus(renderStatus);
-    window.CloudSync.onRemoteState(applyState);
-    window.CloudSync.onRemotePhoto((type, data)=>{
-      const item = document.querySelector(`.item[data-field="${data.field}"]`);
-      if(!item || !(data.field in photoStore)) return;
-      if(type === 'added'){
-        if(photoStore[data.field].some(p=> p.cloudId === data.id)) return;
-        photoStore[data.field].push({ dataUrl: data.dataUrl, w: data.w, h: data.h, cloudId: data.id });
-      } else if(type === 'removed'){
-        photoStore[data.field] = photoStore[data.field].filter(p=> p.cloudId !== data.id);
-      }
+    if(!payload || typeof payload !== 'object' || !payload.state){
+      if(status) status.textContent = "Ce fichier ne semble pas être un brouillon valide.";
+      return;
+    }
+    applyState(payload.state);
+    const photos = payload.photos || {};
+    Object.keys(photos).forEach(key=>{
+      const item = document.querySelector(`.item[data-field="${key}"]`);
+      if(!item || !(key in photoStore)) return;
+      photoStore[key] = photos[key];
       if(item._renderThumbs) item._renderThumbs();
-      if(photoStore[data.field].length) item.classList.add('filled');
-      idbSetPhotos(data.field, photoStore[data.field]);
+      if(photoStore[key].length) item.classList.add('filled');
+      idbSetPhotos(key, photoStore[key]);
     });
-    refreshCloudBinding();
-  }
+    scheduleSave();
+    if(status) status.textContent = "Brouillon importé avec succès.";
+  };
+  reader.onerror = ()=>{
+    if(status) status.textContent = "Impossible de lire le fichier sélectionné.";
+  };
+  reader.readAsText(file);
+}
 
-  if(window.CloudSync) start();
-  else window.addEventListener('cloudsync-ready', start, { once:true });
-  // Repli si le module Firebase n'a pas pu charger du tout (réseau bloqué, CDN inaccessible...) :
-  // au moins afficher un statut plutôt que de laisser l'indicateur vide indéfiniment.
-  setTimeout(()=>{ if(!window.CloudSync) renderStatus('offline'); }, 6000);
-})();
+document.getElementById('exportDraftBtn').addEventListener('click', exportDraft);
+document.getElementById('importDraftBtn').addEventListener('click', ()=>{
+  document.getElementById('importDraftInput').click();
+});
+document.getElementById('importDraftInput').addEventListener('change', (e)=>{
+  const file = e.target.files && e.target.files[0];
+  if(file) importDraft(file);
+  e.target.value = '';
+});
 
 document.getElementById('exportBtn').addEventListener('click', async ()=>{
   const status = document.getElementById('statusMsg');
