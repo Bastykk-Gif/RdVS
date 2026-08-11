@@ -1125,48 +1125,48 @@ function waitForPendingPhotos(){
   });
 }
 
-// Redimensionne/compresse la photo et corrige son orientation EXIF. Sur téléphone, une
-// photo prise en portrait est souvent enregistrée avec des pixels "à plat" + une étiquette
-// EXIF de rotation ; createImageBitmap({imageOrientation:'from-image'}) applique cette
-// rotation avant qu'on ne redessine l'image sur le canvas, donc la largeur/hauteur qu'on
-// enregistre ici correspond exactement à la photo telle qu'on la voit sur l'écran — et c'est
-// ce ratio qui est ensuite respecté à l'impression dans le PDF (voir writeImages plus bas).
+// Décode un fichier image via un <img> alimenté par un URL d'objet (Blob), plutôt que par
+// createImageBitmap({imageOrientation:'from-image'}). Ce dernier a un support inégal de
+// l'option d'orientation selon navigateur/version (au mieux il échoue et on retombe sur un
+// repli, au pire il l'accepte sans vraiment l'appliquer, ce qui donnerait une photo pivotée
+// silencieusement — sans erreur à rattraper). Un <img> classique, en revanche, applique de
+// façon fiable et constante l'orientation EXIF au moment du décodage sur tous les navigateurs
+// modernes (Chrome/Android, Safari/iOS, Firefox, Samsung Internet...), donc ce qui est
+// redessiné sur le canvas correspond toujours à la photo telle qu'affichée à l'écran.
+// URL.createObjectURL évite en plus l'encodage base64 (et donc le pic mémoire correspondant)
+// qu'aurait imposé un passage par FileReader.readAsDataURL sur une photo volumineuse.
+function loadOrientedImage(file){
+  return new Promise((resolve, reject)=>{
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = ()=> resolve({ img, url });
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('Photo illisible')); };
+    img.src = url;
+  });
+}
+
 const PHOTO_MAX_DIM = 1600;
 const PHOTO_JPEG_QUALITY = 0.82;
 
 async function resizeImage(file){
-  let bitmap;
+  const { img, url } = await loadOrientedImage(file);
   try{
-    bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
-  }catch(e){
-    bitmap = await new Promise((resolve, reject)=>{
-      const reader = new FileReader();
-      reader.onload = ()=>{
-        const img = new Image();
-        img.onload = ()=> resolve(img);
-        img.onerror = reject;
-        img.src = reader.result;
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
+    const srcW = img.naturalWidth;
+    const srcH = img.naturalHeight;
+    const scale = Math.min(1, PHOTO_MAX_DIM / Math.max(srcW, srcH));
+    const w = Math.max(1, Math.round(srcW * scale));
+    const h = Math.max(1, Math.round(srcH * scale));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+
+    const dataUrl = canvas.toDataURL('image/jpeg', PHOTO_JPEG_QUALITY);
+    return { dataUrl, w, h };
+  } finally {
+    URL.revokeObjectURL(url);
   }
-
-  const srcW = bitmap.width || bitmap.naturalWidth;
-  const srcH = bitmap.height || bitmap.naturalHeight;
-  const scale = Math.min(1, PHOTO_MAX_DIM / Math.max(srcW, srcH));
-  const w = Math.max(1, Math.round(srcW * scale));
-  const h = Math.max(1, Math.round(srcH * scale));
-
-  const canvas = document.createElement('canvas');
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(bitmap, 0, 0, w, h);
-  if(bitmap.close) bitmap.close();
-
-  const dataUrl = canvas.toDataURL('image/jpeg', PHOTO_JPEG_QUALITY);
-  return { dataUrl, w, h };
 }
 
 // Convertit un canvas déjà recadré (issu de Cropper.js) en objet photo final, en appliquant
@@ -1205,35 +1205,23 @@ const CROP_SOURCE_MAX_DIM = 2000;
 // de capture souvent plus modeste) passait sans problème. En repartant systématiquement d'un
 // JPEG "propre" généré ici, les deux sources sont traitées de façon identique.
 async function prepareImageForCrop(file){
-  let bitmap;
+  const { img, url } = await loadOrientedImage(file);
   try{
-    bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
-  }catch(e){
-    bitmap = await new Promise((resolve, reject)=>{
-      const reader = new FileReader();
-      reader.onload = ()=>{
-        const img = new Image();
-        img.onload = ()=> resolve(img);
-        img.onerror = reject;
-        img.src = reader.result;
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
+    const srcW = img.naturalWidth;
+    const srcH = img.naturalHeight;
+    const scale = Math.min(1, CROP_SOURCE_MAX_DIM / Math.max(srcW, srcH));
+    const w = Math.max(1, Math.round(srcW * scale));
+    const h = Math.max(1, Math.round(srcH * scale));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+
+    return canvas.toDataURL('image/jpeg', 0.92);
+  } finally {
+    URL.revokeObjectURL(url);
   }
-  const srcW = bitmap.width || bitmap.naturalWidth;
-  const srcH = bitmap.height || bitmap.naturalHeight;
-  const scale = Math.min(1, CROP_SOURCE_MAX_DIM / Math.max(srcW, srcH));
-  const w = Math.max(1, Math.round(srcW * scale));
-  const h = Math.max(1, Math.round(srcH * scale));
-
-  const canvas = document.createElement('canvas');
-  canvas.width = w;
-  canvas.height = h;
-  canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
-  if(bitmap.close) bitmap.close();
-
-  return canvas.toDataURL('image/jpeg', 0.92);
 }
 
 let cropperInstance = null;
@@ -1265,27 +1253,41 @@ function initCropModal(){
 
 async function openCropModal(file){
   // L'image est déjà orientée/redimensionnée en dataURL (sans EXIF) avant d'être confiée à
-  // Cropper.js : voir le commentaire de prepareImageForCrop ci-dessus.
-  let dataUrl;
-  try{
-    dataUrl = await prepareImageForCrop(file);
-  }catch(e){
-    return null; // photo illisible : on abandonne le recadrage pour ce fichier
-  }
-  return new Promise((resolve)=>{
+  // Cropper.js : voir le commentaire de prepareImageForCrop ci-dessus. On laisse l'erreur
+  // remonter à l'appelant (handleFile) plutôt que de l'avaler ici, pour qu'il puisse
+  // distinguer un vrai échec d'une simple annulation par l'utilisateur et proposer un repli.
+  const dataUrl = await prepareImageForCrop(file);
+
+  return new Promise((resolve, reject)=>{
     cropResolve = resolve;
-    cropImageEl.src = dataUrl;
     cropModalEl.style.display = 'flex';
+    // Les gestionnaires onload/onerror sont attachés AVANT d'assigner .src : sur un appareil
+    // plus lent ou sous pression mémoire, l'ordre inverse pouvait laisser une fenêtre de
+    // course où l'événement "load" survient avant que le gestionnaire ne soit posé, et la
+    // fenêtre de recadrage restait alors ouverte sans jamais initialiser Cropper.js — un
+    // symptôme intermittent et dépendant de l'appareil, cohérent avec le problème observé.
     cropImageEl.onload = ()=>{
       if(cropperInstance) cropperInstance.destroy();
-      cropperInstance = new Cropper(cropImageEl, {
-        viewMode: 1,
-        autoCropArea: 0.95,
-        background: false,
-        responsive: true,
-        checkOrientation: false
-      });
+      try{
+        cropperInstance = new Cropper(cropImageEl, {
+          viewMode: 1,
+          autoCropArea: 0.95,
+          background: false,
+          responsive: true,
+          checkOrientation: false
+        });
+      }catch(err){
+        cropResolve = null;
+        closeCropModal();
+        reject(err);
+      }
     };
+    cropImageEl.onerror = ()=>{
+      cropResolve = null;
+      closeCropModal();
+      reject(new Error('Échec du chargement de la photo dans la fenêtre de recadrage'));
+    };
+    cropImageEl.src = dataUrl;
   });
 }
 
@@ -1339,7 +1341,10 @@ function buildMediaUI(item){
   const cameraInput = document.createElement('input');
   cameraInput.type = 'file';
   cameraInput.accept = 'image/*';
-  cameraInput.capture = 'environment';
+  // setAttribute plutôt que la propriété .capture : certains navigateurs (constaté sur
+  // Chromium) ne reflètent pas fiablement l'attribut HTML quand il est assigné comme
+  // propriété IDL, ce qui peut empêcher l'ouverture directe de l'appareil photo sur mobile.
+  cameraInput.setAttribute('capture', 'environment');
   cameraInput.style.position = 'absolute';
   cameraInput.style.width = '1px';
   cameraInput.style.height = '1px';
@@ -1397,36 +1402,62 @@ function buildMediaUI(item){
   const thumbsRow = document.createElement('div');
   thumbsRow.className = 'media-row';
 
+  function showPhotoWarning(msg){
+    const statusEl = document.getElementById('statusMsg');
+    if(statusEl){ statusEl.style.color = '#B4732B'; statusEl.textContent = msg; }
+  }
+
   async function handleFile(fileInput){
     const file = fileInput.files[0];
     fileInput.value = '';
     if(!file) return;
 
-    let photo;
+    pendingPhotoOps++;
     try{
-      if(typeof Cropper !== 'undefined'){
-        // Fenêtre de recadrage avant ajout : l'utilisateur peut ajuster le cadrage, ou
-        // annuler (dans ce cas openCropModal résout avec null et on n'ajoute rien).
-        const canvas = await openCropModal(file);
-        if(!canvas) return;
-        pendingPhotoOps++;
-        try{ photo = canvasToPhoto(canvas); } finally { pendingPhotoOps--; }
-      } else {
+      let photo = null;
+      let canvas = null;
+
+      if(typeof Cropper === 'undefined'){
         // Repli si la librairie de recadrage n'a pas pu être chargée (ex. pas de réseau) :
         // on ajoute la photo directement, sans recadrage, comme avant.
-        pendingPhotoOps++;
-        try{ photo = await resizeImage(file); } finally { pendingPhotoOps--; }
+        try{
+          photo = await resizeImage(file);
+        }catch(e){
+          showPhotoWarning("Photo illisible : réessayez, ou choisissez/prenez-en une autre.");
+          return;
+        }
+      } else {
+        try{
+          // Fenêtre de recadrage avant ajout : l'utilisateur peut ajuster le cadrage, ou
+          // annuler (dans ce cas openCropModal résout avec null et on n'ajoute rien).
+          canvas = await openCropModal(file);
+        }catch(e){
+          // Le recadrage n'a pas pu s'initialiser pour cette photo (souvent un problème de
+          // mémoire sur un appareil plus limité avec une photo de grande taille) : on retente
+          // l'ajout direct, sans recadrage, plutôt que de ne rien faire silencieusement — et
+          // on le signale à l'utilisateur pour qu'il comprenne ce qui s'est passé.
+          try{
+            photo = await resizeImage(file);
+            showPhotoWarning("Recadrage indisponible pour cette photo (mémoire insuffisante ?) : ajoutée sans recadrage.");
+          }catch(e2){
+            showPhotoWarning("Photo illisible : réessayez, ou choisissez/prenez-en une autre.");
+            return;
+          }
+        }
+        if(photo === null){
+          if(!canvas) return; // annulé par l'utilisateur dans la fenêtre de recadrage
+          photo = canvasToPhoto(canvas);
+        }
       }
-    }catch(e){
-      /* photo illisible : on l'ignore plutôt que de bloquer la saisie */
-      return;
-    }
 
-    photoStore[key].push(photo);
-    renderThumbs();
-    item.classList.add('filled');
-    idbSetPhotos(key, photoStore[key]);
-    scheduleSave();
+      photoStore[key].push(photo);
+      renderThumbs();
+      item.classList.add('filled');
+      idbSetPhotos(key, photoStore[key]);
+      scheduleSave();
+    } finally {
+      pendingPhotoOps--;
+    }
   }
   cameraInput.addEventListener('change', ()=> handleFile(cameraInput));
   galleryInput.addEventListener('change', ()=> handleFile(galleryInput));
