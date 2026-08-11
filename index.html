@@ -695,7 +695,7 @@
         <div>
           <label for="siteSelect">Site</label>
           <select id="siteSelect">
-            <option value="">— Sélectionner —</option>
+            <option value="">- Sélectionner -</option>
             <option>Argenteuil</option>
             <option>Cergy</option>
             <option>Suresnes</option>
@@ -1168,7 +1168,7 @@ function waitForPendingPhotos(){
 // createImageBitmap({imageOrientation:'from-image'}). Ce dernier a un support inégal de
 // l'option d'orientation selon navigateur/version (au mieux il échoue et on retombe sur un
 // repli, au pire il l'accepte sans vraiment l'appliquer, ce qui donnerait une photo pivotée
-// silencieusement — sans erreur à rattraper). Un <img> classique, en revanche, applique de
+// silencieusement - sans erreur à rattraper). Un <img> classique, en revanche, applique de
 // façon fiable et constante l'orientation EXIF au moment du décodage sur tous les navigateurs
 // modernes (Chrome/Android, Safari/iOS, Firefox, Samsung Internet...), donc ce qui est
 // redessiné sur le canvas correspond toujours à la photo telle qu'affichée à l'écran.
@@ -1240,7 +1240,7 @@ const CROP_SOURCE_MAX_DIM = 2000;
 // raisonnable. Sans cette étape, une photo issue de la galerie (souvent en pleine résolution
 // capteur, avec un EXIF riche : GPS, vignette, notes constructeur...) pouvait faire échouer
 // silencieusement l'analyse d'orientation interne de Cropper.js ou dépasser les limites
-// mémoire du canvas sur mobile — alors qu'une photo prise en direct via l'appareil (résolution
+// mémoire du canvas sur mobile - alors qu'une photo prise en direct via l'appareil (résolution
 // de capture souvent plus modeste) passait sans problème. En repartant systématiquement d'un
 // JPEG "propre" généré ici, les deux sources sont traitées de façon identique.
 async function prepareImageForCrop(file){
@@ -1303,7 +1303,7 @@ async function openCropModal(file){
     // Les gestionnaires onload/onerror sont attachés AVANT d'assigner .src : sur un appareil
     // plus lent ou sous pression mémoire, l'ordre inverse pouvait laisser une fenêtre de
     // course où l'événement "load" survient avant que le gestionnaire ne soit posé, et la
-    // fenêtre de recadrage restait alors ouverte sans jamais initialiser Cropper.js — un
+    // fenêtre de recadrage restait alors ouverte sans jamais initialiser Cropper.js - un
     // symptôme intermittent et dépendant de l'appareil, cohérent avec le problème observé.
     cropImageEl.onload = ()=>{
       if(cropperInstance) cropperInstance.destroy();
@@ -1473,7 +1473,7 @@ function buildMediaUI(item){
         }catch(e){
           // Le recadrage n'a pas pu s'initialiser pour cette photo (souvent un problème de
           // mémoire sur un appareil plus limité avec une photo de grande taille) : on retente
-          // l'ajout direct, sans recadrage, plutôt que de ne rien faire silencieusement — et
+          // l'ajout direct, sans recadrage, plutôt que de ne rien faire silencieusement - et
           // on le signale à l'utilisateur pour qu'il comprenne ce qui s'est passé.
           try{
             photo = await resizeImage(file);
@@ -1744,7 +1744,7 @@ restoreState();
 // ---------- Export / import manuel du brouillon (texte + tableaux + photos) ----------
 // Permet de commencer une visite sur un appareil (téléphone) et de la continuer sur un
 // autre (PC) : on exporte un fichier .json depuis le premier appareil, puis on l'importe
-// dans le second — aucune connexion réseau ni compte requis.
+// dans le second - aucune connexion réseau ni compte requis.
 function exportDraft(){
   const state = collectState();
   const photos = {};
@@ -1917,7 +1917,7 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
     const lw = doc.getTextWidth(labelText);
     doc.setFont('helvetica','italic');
     doc.setTextColor(ANSWER_COLOR[0],ANSWER_COLOR[1],ANSWER_COLOR[2]);
-    doc.text(value || '—', marginX + xOffset + lw + 3, y_);
+    doc.text(value || '-', marginX + xOffset + lw + 3, y_);
     doc.setFont('helvetica','normal');
     doc.setTextColor(0,0,0);
   }
@@ -1925,7 +1925,7 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
   doc.setTextColor(NAVY[0],NAVY[1],NAVY[2]);
   doc.setFont('helvetica','bold');
   doc.setFontSize(17);
-  doc.text('Rapport de visite de site — Lockall', marginX, y_);
+  doc.text('Rapport de visite de site - Lockall', marginX, y_);
   y_ += 22;
   doc.setDrawColor(NAVY[0],NAVY[1],NAVY[2]);
   doc.line(marginX, y_, pageW-marginX, y_);
@@ -1971,7 +1971,7 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
 
   function writeItem(label, fieldKey){
     const el = document.querySelector(`.item[data-field="${fieldKey}"] textarea`);
-    const text = (el ? el.value.trim() : '') || '—';
+    const text = (el ? el.value.trim() : '') || '-';
     let displayLabel = label;
     if(fieldKey === 'google_avis'){
       const googleCount = document.getElementById('googleCount').value || '0';
@@ -2035,9 +2035,9 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
     doc.setFontSize(9.5);
     doc.setTextColor(ANSWER_COLOR[0],ANSWER_COLOR[1],ANSWER_COLOR[2]);
     casRows.forEach(row=>{
-      const nomLines = doc.splitTextToSize(row.nom || '—', colNom - 12);
-      const boxLines = doc.splitTextToSize(row.box || '—', colBox - 12);
-      const commentLines = doc.splitTextToSize(row.comment || '—', colComment - 12);
+      const nomLines = doc.splitTextToSize(row.nom || '-', colNom - 12);
+      const boxLines = doc.splitTextToSize(row.box || '-', colBox - 12);
+      const commentLines = doc.splitTextToSize(row.comment || '-', colComment - 12);
       const maxLines = Math.max(nomLines.length, boxLines.length, commentLines.length);
       const rowH = maxLines*11 + rowPad2*2;
       checkPage(rowH);
@@ -2099,16 +2099,16 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
     doc.setFontSize(10.5);
     doc.setTextColor(0,0,0);
     doc.rect(marginX, y_, tableW, 22);
-    doc.text('—', marginX+6, y_+14);
+    doc.text('-', marginX+6, y_+14);
     y_ += 22;
   } else {
     doc.setFont('helvetica','italic');
     doc.setFontSize(10);
     doc.setTextColor(ANSWER_COLOR[0],ANSWER_COLOR[1],ANSWER_COLOR[2]);
     actionRows.forEach(row=>{
-      const actionLines = doc.splitTextToSize(row.action || '—', colAction - 12);
-      const delaiLines = doc.splitTextToSize(row.delai || '—', colDelai - 12);
-      const quiLines = doc.splitTextToSize(row.qui || '—', colQui - 12);
+      const actionLines = doc.splitTextToSize(row.action || '-', colAction - 12);
+      const delaiLines = doc.splitTextToSize(row.delai || '-', colDelai - 12);
+      const quiLines = doc.splitTextToSize(row.qui || '-', colQui - 12);
       const maxLines = Math.max(actionLines.length, delaiLines.length, quiLines.length);
       const rowH = maxLines*12 + rowPad*2;
 
