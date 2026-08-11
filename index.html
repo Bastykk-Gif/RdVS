@@ -494,8 +494,32 @@
 
   .reset-bar{
     display:flex;
-    justify-content:flex-end;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
     margin-bottom:16px;
+  }
+  .sync-status{
+    font-family:var(--font-mono);
+    font-size:10.5px;
+    letter-spacing:0.4px;
+    color:var(--gray-off);
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .sync-status .dot{
+    width:7px;
+    height:7px;
+    border-radius:50%;
+    background:var(--gray-off);
+    flex-shrink:0;
+  }
+  .sync-status.synced .dot{background:#2E8B57;}
+  .sync-status.syncing .dot{background:var(--amber);}
+  .sync-status.offline .dot{background:#B4732B;}
+  @media print{
+    .sync-status{display:none !important;}
   }
   #resetBtn{
     font-family:var(--font-mono);
@@ -652,6 +676,7 @@
   </header>
 
   <div class="reset-bar">
+    <div class="sync-status" id="syncStatus"></div>
     <button type="button" id="resetBtn">Remise à zéro du formulaire</button>
   </div>
 
@@ -906,6 +931,159 @@
   </div>
 </div>
 
+<!--
+  ======================================================================
+  SYNCHRONISATION CLOUD (Firebase Firestore)
+  ======================================================================
+  Permet de commencer une visite sur un appareil (téléphone) et de la
+  continuer sur un autre (PC) : textes, tableaux et photos se synchronisent
+  automatiquement dès que les champs Date + Site + Manager sont identiques
+  sur les deux appareils.
+
+  CONFIGURATION REQUISE : remplacez les valeurs "REMPLACER_MOI" ci-dessous
+  par celles de votre projet Firebase (Console Firebase → Paramètres du
+  projet → Vos applications → Web → objet firebaseConfig).
+  Tant que apiKey vaut "REMPLACER_MOI", la synchronisation reste désactivée
+  et le formulaire fonctionne exactement comme avant (sauvegarde locale
+  uniquement, sur cet appareil) : ce fichier peut être utilisé sans risque
+  avant configuration.
+-->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
+  import {
+    getFirestore, doc, setDoc, onSnapshot, collection, addDoc, deleteDoc,
+    serverTimestamp, query, orderBy
+  } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
+  import {
+    getAuth, signInAnonymously, onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDNdarVam-y6ycNa4g70ApoOVZXLeyQhms",
+    authDomain: "rdvs-b63a1.firebaseapp.com",
+    projectId: "rdvs-b63a1",
+    storageBucket: "rdvs-b63a1.firebasestorage.app",
+    messagingSenderId: "224522211114",
+    appId: "1:224522211114:web:2722d9de166ba03d6c5853"
+  };
+  const CLOUD_SYNC_ENABLED = !!(firebaseConfig.apiKey && firebaseConfig.apiKey !== "REMPLACER_MOI");
+
+  // Identifiant unique à ce chargement de page : on l'attache à chaque écriture Firestore
+  // pour pouvoir ignorer, dans nos propres écouteurs onSnapshot, les échos de nos propres
+  // écritures (Firestore notifie aussi l'appareil qui vient d'écrire) — sans ce filtrage, un
+  // appareil pourrait ré-appliquer sa propre donnée en boucle ou dupliquer ses propres photos.
+  const writerId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+
+  let db = null, auth = null;
+  let readyResolve;
+  let ready = new Promise(r=>{ readyResolve = r; });
+
+  if(CLOUD_SYNC_ENABLED){
+    try{
+      const app = initializeApp(firebaseConfig);
+      db = getFirestore(app);
+      auth = getAuth(app);
+      let settled = false;
+      onAuthStateChanged(auth, (user)=>{
+        if(settled) return;
+        settled = true;
+        readyResolve(!!user);
+      });
+      signInAnonymously(auth).catch(()=>{
+        if(!settled){ settled = true; readyResolve(false); }
+      });
+    }catch(e){
+      readyResolve(false);
+    }
+  } else {
+    readyResolve(false);
+  }
+
+  let currentDocId = null;
+  let unsubDoc = null;
+  let unsubPhotos = null;
+  let onRemoteStateCb = null;
+  let onRemotePhotoCb = null;
+  let onStatusCb = null;
+
+  function setStatus(s){ if(onStatusCb) onStatusCb(s); }
+
+  async function setDocId(id){
+    const isReady = await ready;
+    if(!isReady || !db){ setStatus('offline'); return; }
+    if(id === currentDocId) return;
+    if(unsubDoc){ unsubDoc(); unsubDoc = null; }
+    if(unsubPhotos){ unsubPhotos(); unsubPhotos = null; }
+    currentDocId = id;
+    if(!id) return;
+
+    setStatus('syncing');
+
+    unsubDoc = onSnapshot(doc(db, 'visites', id), (snap)=>{
+      const data = snap.data();
+      setStatus('synced');
+      if(!data || data.writerId === writerId) return;
+      if(onRemoteStateCb) onRemoteStateCb(data.state || {});
+    }, ()=> setStatus('offline'));
+
+    unsubPhotos = onSnapshot(
+      query(collection(db, 'visites', id, 'photos'), orderBy('order')),
+      (snap)=>{
+        snap.docChanges().forEach(change=>{
+          const data = change.doc.data();
+          if(data.writerId === writerId) return;
+          if(change.type === 'removed'){
+            if(onRemotePhotoCb) onRemotePhotoCb('removed', { id: change.doc.id, field: data.field });
+          } else {
+            if(onRemotePhotoCb) onRemotePhotoCb('added', { id: change.doc.id, field: data.field, dataUrl: data.dataUrl, w: data.w, h: data.h });
+          }
+        });
+      },
+      ()=> setStatus('offline')
+    );
+  }
+
+  async function pushState(state){
+    if(!(await ready) || !currentDocId || !db) return;
+    try{
+      setStatus('syncing');
+      await setDoc(doc(db, 'visites', currentDocId), { state, writerId, updatedAt: serverTimestamp() }, { merge: true });
+      setStatus('synced');
+    }catch(e){ setStatus('offline'); }
+  }
+
+  let photoOrderCounter = Date.now();
+  async function pushPhotoAdd(field, photo){
+    if(!(await ready) || !currentDocId || !db) return null;
+    try{
+      const ref = await addDoc(collection(db, 'visites', currentDocId, 'photos'), {
+        field, dataUrl: photo.dataUrl, w: photo.w, h: photo.h,
+        order: photoOrderCounter++, writerId
+      });
+      return ref.id;
+    }catch(e){ return null; }
+  }
+
+  async function pushPhotoRemove(photoId){
+    if(!(await ready) || !currentDocId || !db || !photoId) return;
+    try{ await deleteDoc(doc(db, 'visites', currentDocId, 'photos', photoId)); }
+    catch(e){ /* ignore */ }
+  }
+
+  window.CloudSync = {
+    enabled: CLOUD_SYNC_ENABLED,
+    ready,
+    setDocId,
+    pushState,
+    pushPhotoAdd,
+    pushPhotoRemove,
+    onRemoteState(cb){ onRemoteStateCb = cb; },
+    onRemotePhoto(cb){ onRemotePhotoCb = cb; },
+    onStatus(cb){ onStatusCb = cb; }
+  };
+  window.dispatchEvent(new Event('cloudsync-ready'));
+</script>
+
 <script>
 // ---------- Sauvegarde automatique locale ----------
 const STORAGE_KEY = 'lockall_visite_draft_v1';
@@ -952,21 +1130,27 @@ function collectState(){
 }
 
 function saveState(){
+  const state = collectState();
   try{
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(collectState()));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }catch(e){ /* stockage indisponible : abandon silencieux (texte uniquement, donc rare) */ }
+  // Synchronisation cloud (Firebase) si configurée : voir le module en haut du fichier.
+  // Sans configuration, window.CloudSync.enabled est false et cet appel ne fait rien.
+  if(window.CloudSync && window.CloudSync.enabled) window.CloudSync.pushState(state);
 }
 
-function restoreState(){
-  let raw;
-  try{ raw = localStorage.getItem(STORAGE_KEY); }catch(e){ return; }
-  if(!raw) return;
-  let state;
-  try{ state = JSON.parse(raw); }catch(e){ return; }
+// Applique un état (au format produit par collectState()) aux champs du formulaire. Utilisé
+// à la fois pour restaurer le brouillon local au chargement (restoreState ci-dessous) et pour
+// appliquer une mise à jour reçue d'un autre appareil via la synchronisation cloud. Dans ce
+// second cas, on évite de toucher un champ/tableau en cours de saisie locale (activeElement)
+// pour ne pas arracher au clavier ce que la personne est en train de taper.
+function applyState(state){
+  if(!state) return;
+  const active = document.activeElement;
 
   Object.keys(state.fields || {}).forEach(id=>{
     const el = document.getElementById(id);
-    if(el) el.value = state.fields[id];
+    if(el && el !== active) el.value = state.fields[id];
   });
 
   Object.keys(state.items || {}).forEach(key=>{
@@ -975,23 +1159,29 @@ function restoreState(){
     const data = state.items[key];
     const textarea = item.querySelector('textarea');
     const rasBtn = item.querySelector('.ras-btn');
+    if(textarea && textarea === active) return; // saisie en cours ici : on ne remplace rien
 
     if(textarea && data.text) textarea.value = data.text;
     if(textarea && data.text && data.text.trim().length>0) item.classList.add('filled');
 
-    if(rasBtn && data.ras){
-      rasBtn.classList.add('active');
-      item.classList.add('ras');
-      item.classList.add('filled');
-      if(textarea){
-        textarea.dataset.prev = data.text || '';
-        textarea.value = 'RAS';
-        textarea.disabled = true;
+    if(rasBtn){
+      const rasActive = !!data.ras;
+      rasBtn.classList.toggle('active', rasActive);
+      item.classList.toggle('ras', rasActive);
+      if(rasActive){
+        item.classList.add('filled');
+        if(textarea){
+          textarea.dataset.prev = data.text || '';
+          textarea.value = 'RAS';
+          textarea.disabled = true;
+        }
+      } else if(textarea){
+        textarea.disabled = false;
       }
     }
   });
 
-  if(state.actions && state.actions.length){
+  if(state.actions && !(active && active.closest && active.closest('#actionsBody'))){
     const meaningful = state.actions.filter(a=> (a.action || a.delai || a.qui));
     if(meaningful.length){
       const tbody = document.getElementById('actionsBody');
@@ -1008,7 +1198,7 @@ function restoreState(){
     }
   }
 
-  if(state.casRows && state.casRows.length){
+  if(state.casRows && !(active && active.closest && active.closest('#casBody'))){
     const meaningfulCas = state.casRows.filter(a=> (a.nom || a.box || a.comment));
     if(meaningfulCas.length){
       const tbody = document.getElementById('casBody');
@@ -1023,6 +1213,16 @@ function restoreState(){
         wireCasRow(tr);
       });
     }
+  }
+}
+
+function restoreState(){
+  let raw;
+  try{ raw = localStorage.getItem(STORAGE_KEY); }catch(e){ return; }
+  if(raw){
+    let state;
+    try{ state = JSON.parse(raw); }catch(e){ state = null; }
+    if(state) applyState(state);
   }
 
   // Restauration des photos : stockées à part en IndexedDB (voir plus bas), qui n'a pas la
@@ -1455,6 +1655,11 @@ function buildMediaUI(item){
       item.classList.add('filled');
       idbSetPhotos(key, photoStore[key]);
       scheduleSave();
+      if(window.CloudSync && window.CloudSync.enabled){
+        window.CloudSync.pushPhotoAdd(key, photo).then(cloudId=>{
+          if(cloudId) photo.cloudId = cloudId;
+        });
+      }
     } finally {
       pendingPhotoOps--;
     }
@@ -1474,10 +1679,14 @@ function buildMediaUI(item){
       rm.className = 'rm';
       rm.textContent = '×';
       rm.addEventListener('click', ()=>{
+        const removed = photoStore[key][idx];
         photoStore[key].splice(idx,1);
         renderThumbs();
         idbSetPhotos(key, photoStore[key]);
         scheduleSave();
+        if(window.CloudSync && window.CloudSync.enabled && removed && removed.cloudId){
+          window.CloudSync.pushPhotoRemove(removed.cloudId);
+        }
       });
       thumb.appendChild(im);
       thumb.appendChild(rm);
@@ -1506,6 +1715,33 @@ document.querySelectorAll('.item textarea, .infocard-grid textarea, .infocard-gr
 });
 document.getElementById('siteSelect').addEventListener('change', scheduleSave);
 document.getElementById('visitDate').addEventListener('change', scheduleSave);
+
+// ---------- Synchronisation cloud : identifiant de visite partagé entre appareils ----------
+// Dérivé de Date + Site + Manager (nettoyés en minuscules sans accents) : dès que ces trois
+// champs sont identiques sur deux appareils, ils pointent vers le même document Firestore et
+// se synchronisent automatiquement — pas besoin de code ou de lien à copier manuellement.
+function slugPart(v){
+  return (v || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .trim().toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+function computeVisitDocId(){
+  const site = slugPart(document.getElementById('siteSelect').value);
+  const date = document.getElementById('visitDate').value;
+  const manager = slugPart(document.getElementById('managerInput').value);
+  if(!site || !date || !manager) return null;
+  return `${date}_${site}_${manager}`;
+}
+function refreshCloudBinding(){
+  if(!window.CloudSync || !window.CloudSync.enabled) return;
+  window.CloudSync.setDocId(computeVisitDocId());
+}
+document.getElementById('siteSelect').addEventListener('change', refreshCloudBinding);
+document.getElementById('visitDate').addEventListener('change', refreshCloudBinding);
+document.getElementById('managerInput').addEventListener('input', refreshCloudBinding);
+document.getElementById('managerInput').addEventListener('change', refreshCloudBinding);
 
 // ---------- RAS ----------
 document.querySelectorAll('.ras-btn').forEach(btn=>{
@@ -1684,6 +1920,53 @@ document.getElementById('addCasRowBtn').addEventListener('click', ()=>{
 // fonctions de câblage définis, pour éviter une erreur si un brouillon sauvegardé contient
 // des lignes de tableau à recréer.
 restoreState();
+
+// ---------- Synchronisation cloud : câblage des callbacks + indicateur visuel ----------
+// Le module Firebase (en haut du fichier) charge de façon différée : window.CloudSync peut
+// ne pas encore exister à cet instant, d'où l'écoute de l'événement 'cloudsync-ready' en repli.
+(function setupCloudSync(){
+  const statusEl = document.getElementById('syncStatus');
+  const statusLabels = {
+    synced: 'Synchronisé',
+    syncing: 'Synchronisation…',
+    offline: 'Hors ligne (sauvegarde locale uniquement)'
+  };
+  function renderStatus(s){
+    if(!statusEl) return;
+    statusEl.className = 'sync-status' + (s ? ' ' + s : '');
+    statusEl.innerHTML = '<span class="dot"></span>' + (statusLabels[s] || '');
+  }
+
+  function start(){
+    if(!window.CloudSync) return;
+    if(!window.CloudSync.enabled){
+      renderStatus('offline');
+      return;
+    }
+    window.CloudSync.onStatus(renderStatus);
+    window.CloudSync.onRemoteState(applyState);
+    window.CloudSync.onRemotePhoto((type, data)=>{
+      const item = document.querySelector(`.item[data-field="${data.field}"]`);
+      if(!item || !(data.field in photoStore)) return;
+      if(type === 'added'){
+        if(photoStore[data.field].some(p=> p.cloudId === data.id)) return;
+        photoStore[data.field].push({ dataUrl: data.dataUrl, w: data.w, h: data.h, cloudId: data.id });
+      } else if(type === 'removed'){
+        photoStore[data.field] = photoStore[data.field].filter(p=> p.cloudId !== data.id);
+      }
+      if(item._renderThumbs) item._renderThumbs();
+      if(photoStore[data.field].length) item.classList.add('filled');
+      idbSetPhotos(data.field, photoStore[data.field]);
+    });
+    refreshCloudBinding();
+  }
+
+  if(window.CloudSync) start();
+  else window.addEventListener('cloudsync-ready', start, { once:true });
+  // Repli si le module Firebase n'a pas pu charger du tout (réseau bloqué, CDN inaccessible...) :
+  // au moins afficher un statut plutôt que de laisser l'indicateur vide indéfiniment.
+  setTimeout(()=>{ if(!window.CloudSync) renderStatus('offline'); }, 6000);
+})();
 
 document.getElementById('exportBtn').addEventListener('click', async ()=>{
   const status = document.getElementById('statusMsg');
