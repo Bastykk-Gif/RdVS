@@ -534,7 +534,9 @@
 
   .export-bar{
     display:flex;
-    justify-content:center;
+    flex-direction:column;
+    align-items:center;
+    gap:14px;
     margin-top:44px;
   }
   #exportBtn{
@@ -554,6 +556,28 @@
   }
   #exportBtn:hover{background:var(--amber); color:var(--navy); transform:translateY(-1px);}
   #exportBtn:active{transform:translateY(0);}
+  #mailBtn{
+    font-family:var(--font-mono);
+    text-transform:uppercase;
+    letter-spacing:1.5px;
+    font-size:12.5px;
+    background:transparent;
+    color:var(--navy);
+    border:2px solid var(--navy);
+    padding:13px 30px;
+    border-radius:40px;
+    cursor:pointer;
+    transition:transform .12s ease, background .15s ease, color .15s ease;
+    width:100%;
+    max-width:360px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+  }
+  #mailBtn svg{width:16px;height:16px;flex-shrink:0;}
+  #mailBtn:hover{background:var(--navy); color:#fff; transform:translateY(-1px);}
+  #mailBtn:active{transform:translateY(0);}
   .status{
     text-align:center;
     font-family:var(--font-mono);
@@ -906,6 +930,10 @@
 
   <div class="export-bar">
     <button id="exportBtn">Valider et exporter en PDF</button>
+    <button id="mailBtn" type="button">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 6.5A1.5 1.5 0 0 1 5.5 5h13A1.5 1.5 0 0 1 20 6.5v11A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5v-11Z" stroke="currentColor" stroke-width="1.6"/><path d="M5 7l6.4 5.2a2.5 2.5 0 0 0 3.2 0L21 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Envoyer le rapport par mail
+    </button>
   </div>
   <div class="status" id="statusMsg"></div>
 
@@ -1845,12 +1873,97 @@ document.getElementById('importDraftInput').addEventListener('change', (e)=>{
   e.target.value = '';
 });
 
-document.getElementById('exportBtn').addEventListener('click', async ()=>{
+// ---------- Répertoire sites / managers pour l'envoi par mail ----------
+const SITE_EMAILS = {
+  'Argenteuil': 'argenteuil@lockall.fr',
+  'Cergy': 'cergy@lockall.fr',
+  'Poissy': 'poissy@lockall.fr',
+  'Suresnes': 'suresnes@lockall.fr',
+  'Lognes': 'lognes@lockall.fr',
+  'Paris 8': 'paris8@lockall.fr',
+  'Paris 13': 'paris13@lockall.fr',
+  'Vélizy': 'velizy@lockall.fr'
+};
+const ALWAYS_CC = ['melanie.c@lockall.fr', 'vincent.godderidge@lockall.fr'];
+
+// ---------- Reconnaissance du manager à partir du champ libre "managerInput" ----------
+// Le champ manager reste un texte libre (pas de liste déroulante) : on essaie donc de
+// retrouver, à partir de ce qui est tapé, à quel manager de la liste ci-dessous ça
+// correspond, en tolérant : l'inversion nom/prénom, les majuscules/minuscules, la présence
+// ou non des accents, et le nom ou le prénom tapé seul. Si aucune correspondance fiable
+// n'est trouvée, le manager n'est simplement pas mis en copie (voir mailBtn plus bas).
+const MANAGER_DIRECTORY_RAW = [
+  { name: 'Olivier Chevreux', email: 'olivier.c@lockall.fr' },
+  { name: 'Mélanie Carré', email: 'melanie.c@lockall.fr' },
+  { name: 'Vincent Godderidge', email: 'vincent.godderidge@lockall.fr' },
+  { name: "Alexis De L'Epine", email: 'alexis.delepine@sodeval.fr' },
+  { name: 'Farija Lasledj', email: 'farija.l@lockall.fr' },
+  { name: 'Adrien Efferneli', email: 'adrien.e@lockall.fr' }
+];
+
+// Particules usuelles à ignorer quand on cherche à faire correspondre un nom de famille
+// tapé seul (ex. "Lepine" doit suffire pour "Alexis De L'Epine", sans avoir à taper "De").
+const NAME_STOPWORDS = new Set(['de','du','des','la','le','les','van','von','der','den']);
+
+function normalizeManagerText(s){
+  return (s || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // accents
+    .toLowerCase()
+    .replace(/['’\-]/g, '') // apostrophes/tirets : "L'Epine" -> "lepine"
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+const MANAGER_DIRECTORY = MANAGER_DIRECTORY_RAW.map(m=>{
+  const tokens = normalizeManagerText(m.name).split(' ').filter(Boolean);
+  const first = tokens[0];
+  const surnameTokens = tokens.slice(1);
+  const surnameJoined = surnameTokens.join(''); // "delepine"
+  const surnameKeywords = new Set([
+    ...surnameTokens.filter(t=> !NAME_STOPWORDS.has(t)),
+    surnameJoined
+  ]);
+  return { ...m, tokens, first, surnameJoined, surnameKeywords };
+});
+
+// Retrouve le manager correspondant à un texte libre, ou null si aucune correspondance
+// suffisamment fiable n'a été trouvée.
+function findManagerByName(rawInput){
+  const norm = normalizeManagerText(rawInput);
+  if(!norm) return null;
+  const inputTokens = norm.split(' ').filter(Boolean);
+  if(!inputTokens.length) return null;
+  const inputSet = new Set(inputTokens);
+
+  const candidates = MANAGER_DIRECTORY.filter(m=>{
+    // Nom complet, dans n'importe quel ordre (prénom+nom ou nom+prénom)
+    const sameAsFull = inputTokens.length === m.tokens.length && m.tokens.every(t=> inputSet.has(t));
+
+    // Nom complet avec le nom de famille tapé comme un seul mot (ex. "Alexis Delepine"),
+    // dans les deux ordres possibles.
+    const mergedNameMatch = inputTokens.length === 2 &&
+      ((inputTokens[0] === m.first && inputTokens[1] === m.surnameJoined) ||
+       (inputTokens[1] === m.first && inputTokens[0] === m.surnameJoined));
+
+    // Prénom seul, ou nom de famille seul (avec ou sans particule)
+    const singleTokenMatch = inputTokens.length === 1 &&
+      (inputTokens[0] === m.first || m.surnameKeywords.has(inputTokens[0]));
+
+    return sameAsFull || mergedNameMatch || singleTokenMatch;
+  });
+
+  const unique = [...new Set(candidates)];
+  return unique.length === 1 ? unique[0] : null;
+}
+
+// ---------- Génération du PDF (partagée par l'export et l'envoi par mail) ----------
+// Construit le document PDF à partir du contenu actuel du formulaire. Retourne null (et
+// affiche un message dans #statusMsg) si les champs obligatoires (date, site) ne sont pas
+// renseignés, sinon { doc, fileName, dateVal, site, manager }.
+async function generateReportPdf(){
   const status = document.getElementById('statusMsg');
 
-  // On attend que toutes les photos en cours de traitement (redimensionnement + correction
-  // d'orientation) soient terminées avant de construire le PDF, pour ne jamais imprimer une
-  // photo pas encore complètement prête.
   status.style.color = '#5B6472';
   status.textContent = "Préparation des photos...";
   await waitForPendingPhotos();
@@ -1861,7 +1974,7 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
   if(!dateVal || !site){
     status.textContent = "Merci de renseigner la date et le site avant l'export.";
     status.style.color = '#B4732B';
-    return;
+    return null;
   }
 
   const [y,m,d] = dateVal.split('-');
@@ -2179,9 +2292,66 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
     });
   });
 
-  doc.save(fileName);
+  return { doc, fileName, dateVal, site, manager };
+}
+
+document.getElementById('exportBtn').addEventListener('click', async ()=>{
+  const status = document.getElementById('statusMsg');
+  const result = await generateReportPdf();
+  if(!result) return;
+  result.doc.save(result.fileName);
   status.style.color = '#152A4E';
-  status.textContent = `Exporté : ${fileName}`;
+  status.textContent = `Exporté : ${result.fileName}`;
+  try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
+});
+
+// ---------- Envoi du rapport par mail ----------
+// Un lien mailto: ne peut pas joindre automatiquement un fichier (limitation de tous les
+// navigateurs et clients mail, pas seulement de ce formulaire) : ce bouton génère donc le
+// PDF et le télécharge (comme le bouton d'export), puis ouvre le client mail par défaut
+// avec le destinataire, les copies et un sujet déjà remplis — il ne reste qu'à joindre le
+// fichier PDF qui vient d'être téléchargé avant d'envoyer.
+document.getElementById('mailBtn').addEventListener('click', async ()=>{
+  const status = document.getElementById('statusMsg');
+  const site = document.getElementById('siteSelect').value;
+  const managerName = document.getElementById('managerInput').value.trim();
+
+  if(!site || !(site in SITE_EMAILS)){
+    status.style.color = '#B4732B';
+    status.textContent = "Merci de sélectionner le site avant d'envoyer le rapport par mail.";
+    return;
+  }
+
+  // Le champ manager reste un texte libre : on essaie de le faire correspondre à un
+  // manager connu (voir findManagerByName ci-dessus). Si rien de fiable n'est trouvé, on
+  // n'ajoute simplement personne de plus en copie, sans bloquer l'envoi.
+  const matchedManager = findManagerByName(managerName);
+
+  const result = await generateReportPdf();
+  if(!result) return;
+
+  // Téléchargement du PDF : la pièce à joindre manuellement dans l'email qui va s'ouvrir.
+  result.doc.save(result.fileName);
+
+  const toAddr = SITE_EMAILS[site];
+  const ccSet = new Set();
+  if(matchedManager) ccSet.add(matchedManager.email);
+  ALWAYS_CC.forEach(addr=> ccSet.add(addr));
+  const ccAddr = Array.from(ccSet).join(',');
+
+  const [y,m,d] = result.dateVal.split('-');
+  const subject = `Rapport de visite de site - ${site} - ${d}/${m}/${y}`;
+  const body = `Bonjour,\n\nVeuillez trouver ci-joint le rapport de visite de site du ${d}/${m}/${y} pour le site ${site}.\n\nMerci de joindre le fichier "${result.fileName}" qui vient d'être téléchargé avant l'envoi de cet email (une pièce jointe ne peut pas être ajoutée automatiquement).\n\nCordialement,\n${managerName}`;
+
+  const mailtoUrl = `mailto:${encodeURIComponent(toAddr)}?cc=${encodeURIComponent(ccAddr)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.location.href = mailtoUrl;
+
+  status.style.color = '#152A4E';
+  if(managerName && !matchedManager){
+    status.textContent = `PDF téléchargé (${result.fileName}) et email préparé — manager « ${managerName} » non reconnu, pas mis en copie. N'oubliez pas de joindre le fichier avant l'envoi.`;
+  } else {
+    status.textContent = `PDF téléchargé (${result.fileName}) et email préparé — n'oubliez pas de joindre le fichier avant l'envoi.`;
+  }
   try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
 });
 </script>
