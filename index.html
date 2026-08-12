@@ -2306,11 +2306,20 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
 });
 
 // ---------- Envoi du rapport par mail ----------
-// Un lien mailto: ne peut pas joindre automatiquement un fichier (limitation de tous les
-// navigateurs et clients mail, pas seulement de ce formulaire) : ce bouton génère donc le
-// PDF et le télécharge (comme le bouton d'export), puis ouvre le client mail par défaut
-// avec le destinataire, les copies et un sujet déjà remplis — il ne reste qu'à joindre le
-// fichier PDF qui vient d'être téléchargé avant d'envoyer.
+// Un lien mailto: ne peut jamais joindre un fichier automatiquement (limitation de tous les
+// navigateurs, pas de ce formulaire). En revanche, l'API de partage natif du navigateur
+// (Web Share, avec fichier) permet de joindre le PDF pour de vrai : elle ouvre le
+// sélecteur de partage du système (téléphone ou ordinateur), où l'on choisit l'application
+// mail (Gmail, Outlook, Mail...), qui s'ouvre alors avec le PDF déjà en pièce jointe. Seule
+// limite : cette API ne permet pas de préremplir les champs À/Cc (ce n'est pas prévu par le
+// système) — les adresses sont donc copiées dans le presse-papiers pour un collage rapide.
+// Sur les navigateurs qui ne supportent pas le partage de fichiers (Safari ordinateur,
+// Firefox), on retombe sur le comportement précédent : téléchargement + email prérempli
+// avec le fichier à joindre manuellement.
+function canShareFile(file){
+  return !!(navigator.canShare && navigator.share && navigator.canShare({ files: [file] }));
+}
+
 document.getElementById('mailBtn').addEventListener('click', async ()=>{
   const status = document.getElementById('statusMsg');
   const site = document.getElementById('siteSelect').value;
@@ -2330,28 +2339,65 @@ document.getElementById('mailBtn').addEventListener('click', async ()=>{
   const result = await generateReportPdf();
   if(!result) return;
 
-  // Téléchargement du PDF : la pièce à joindre manuellement dans l'email qui va s'ouvrir.
-  result.doc.save(result.fileName);
-
   const toAddr = SITE_EMAILS[site];
   const ccSet = new Set();
   if(matchedManager) ccSet.add(matchedManager.email);
   ALWAYS_CC.forEach(addr=> ccSet.add(addr));
-  const ccAddr = Array.from(ccSet).join(',');
+  const ccList = Array.from(ccSet);
+  const allRecipients = [toAddr, ...ccList];
+  const managerNote = (managerName && !matchedManager)
+    ? ` (manager « ${managerName} » non reconnu, pas mis en copie)`
+    : '';
 
   const [y,m,d] = result.dateVal.split('-');
   const subject = `Rapport de visite de site - ${site} - ${d}/${m}/${y}`;
-  const body = `Bonjour,\n\nVeuillez trouver ci-joint le rapport de visite de site du ${d}/${m}/${y} pour le site ${site}.\n\nMerci de joindre le fichier "${result.fileName}" qui vient d'être téléchargé avant l'envoi de cet email (une pièce jointe ne peut pas être ajoutée automatiquement).\n\nCordialement,\n${managerName}`;
+  const recipientsSummary = `Destinataire : ${toAddr}\nCopie : ${ccList.join(', ')}`;
+  // Corps utilisé uniquement pour le repli mailto (voir fallbackMailto ci-dessous). Le
+  // partage natif, lui, ne transmet aucun texte de corps : voir le commentaire à l'appel
+  // de navigator.share plus bas.
+  const body = `Bonjour,\n\nVeuillez trouver ci-joint le rapport de visite de site du ${d}/${m}/${y} pour le site ${site}.\n\n${recipientsSummary}\n\nCordialement,\n${managerName}`;
 
-  const mailtoUrl = `mailto:${encodeURIComponent(toAddr)}?cc=${encodeURIComponent(ccAddr)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-  window.location.href = mailtoUrl;
-
-  status.style.color = '#152A4E';
-  if(managerName && !matchedManager){
-    status.textContent = `PDF téléchargé (${result.fileName}) et email préparé — manager « ${managerName} » non reconnu, pas mis en copie. N'oubliez pas de joindre le fichier avant l'envoi.`;
-  } else {
-    status.textContent = `PDF téléchargé (${result.fileName}) et email préparé — n'oubliez pas de joindre le fichier avant l'envoi.`;
+  function fallbackMailto(){
+    result.doc.save(result.fileName);
+    const mailtoUrl = `mailto:${encodeURIComponent(toAddr)}?cc=${encodeURIComponent(ccList.join(','))}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = mailtoUrl;
+    status.style.color = '#152A4E';
+    status.textContent = `PDF téléchargé (${result.fileName}) et email préparé${managerNote} — n'oubliez pas de joindre le fichier avant l'envoi.`;
   }
+
+  const pdfBlob = result.doc.output('blob');
+  const file = new File([pdfBlob], result.fileName, { type: 'application/pdf' });
+
+  if(canShareFile(file)){
+    // Copie des destinataires dans le presse-papiers : à coller dans les champs À/Cc de
+    // l'application mail choisie dans le sélecteur de partage qui va s'ouvrir.
+    try{ await navigator.clipboard.writeText(allRecipients.join(', ')); }catch(e){ /* presse-papiers indisponible : les adresses restent visibles dans le corps du message */ }
+
+    try{
+      // Testé sur plusieurs applications mail : ni "title" ni "text" ne remplissent le
+      // sujet de façon fiable (Outlook desktop, par exemple, ignore les deux pour le
+      // sujet), et tout texte transmis se mélange de façon imprévisible à la signature
+      // déjà présente dans le champ. On ne transmet donc que le fichier : le sujet et le
+      // corps du message doivent être complétés à la main (les destinataires, eux, restent
+      // copiés dans le presse-papiers ci-dessous).
+      await navigator.share({
+        files: [file],
+        title: subject
+      });
+      status.style.color = '#152A4E';
+      status.textContent = `Sélecteur de partage ouvert avec le PDF déjà joint${managerNote} — collez les adresses (copiées dans le presse-papiers) dans À/Cc, et complétez le sujet (${subject}).`;
+    }catch(err){
+      if(err && err.name === 'AbortError'){
+        status.style.color = '#5B6472';
+        status.textContent = "Partage annulé.";
+      } else {
+        fallbackMailto();
+      }
+    }
+  } else {
+    fallbackMailto();
+  }
+
   try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
 });
 </script>
