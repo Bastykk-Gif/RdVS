@@ -1602,7 +1602,15 @@ document.querySelectorAll('.item[data-field]').forEach(item=>{
 document.querySelectorAll('.item textarea, .infocard-grid textarea, .infocard-grid input, #googleCount').forEach(t=>{
   t.addEventListener('input', ()=>{
     const item = t.closest('.item');
-    if(item) item.classList.toggle('filled', t.value.trim().length>0);
+    if(item){
+      // Un item peut contenir plusieurs champs (ex. "Avis Google" : nombre + commentaire) :
+      // on considère l'item "rempli" si AU MOINS UN de ses champs texte/nombre est non vide,
+      // plutôt que de ne regarder que le champ qui vient d'être modifié (ce qui pouvait
+      // faire disparaître/apparaître la bordure ambre selon le dernier champ édité).
+      const fields = item.querySelectorAll('textarea, input[type=number], input[type=text]');
+      const anyFilled = Array.from(fields).some(f=> f.value.trim().length>0);
+      item.classList.toggle('filled', anyFilled);
+    }
     scheduleSave();
   });
 });
@@ -1617,14 +1625,6 @@ function slugPart(v){
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
 }
-function computeVisitDocId(){
-  const site = slugPart(document.getElementById('siteSelect').value);
-  const date = document.getElementById('visitDate').value;
-  const manager = slugPart(document.getElementById('managerInput').value);
-  if(!site || !date || !manager) return null;
-  return `${date}_${site}_${manager}`;
-}
-
 // ---------- RAS ----------
 document.querySelectorAll('.ras-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
@@ -1657,6 +1657,7 @@ document.getElementById('resetBtn').addEventListener('click', ()=>{
   document.getElementById('siteSelect').value = '';
   document.getElementById('managerInput').value = '';
   document.getElementById('teamInput').value = '';
+  document.getElementById('googleCount').value = '';
 
   // Champs de chaque item + RAS + photos
   document.querySelectorAll('.item[data-field]').forEach(item=>{
@@ -1964,6 +1965,12 @@ function findManagerByName(rawInput){
 async function generateReportPdf(){
   const status = document.getElementById('statusMsg');
 
+  if(!window.jspdf || !window.jspdf.jsPDF){
+    status.style.color = '#B4732B';
+    status.textContent = "Impossible de générer le PDF : la librairie n'a pas pu se charger (vérifiez votre connexion, puis rechargez la page).";
+    return null;
+  }
+
   status.style.color = '#5B6472';
   status.textContent = "Préparation des photos...";
   await waitForPendingPhotos();
@@ -2107,7 +2114,15 @@ async function generateReportPdf(){
         y_ += rowH + imgGap;
         rowH = 0;
       }
+      const pageBefore = doc.internal.getNumberOfPages();
       checkPage(h + imgGap);
+      // Si checkPage() vient de déclencher un saut de page (ex. photo portrait haute), la
+      // position horizontale x_ doit repartir de la marge gauche sur la nouvelle page :
+      // sinon les photos suivantes de la même "ligne" démarraient décalées horizontalement.
+      if(doc.internal.getNumberOfPages() !== pageBefore){
+        x_ = marginX;
+        rowH = 0;
+      }
       const fmt = p.dataUrl.substring(p.dataUrl.indexOf('/')+1, p.dataUrl.indexOf(';')).toUpperCase();
       doc.addImage(p.dataUrl, fmt === 'JPEG' || fmt === 'JPG' ? 'JPEG' : 'PNG', x_, y_, w, h);
       x_ += w + imgGap;
@@ -2303,6 +2318,7 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
   status.style.color = '#152A4E';
   status.textContent = `Exporté : ${result.fileName}`;
   try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
+  idbClearAll();
 });
 
 // ---------- Envoi du rapport par mail ----------
@@ -2399,6 +2415,7 @@ document.getElementById('mailBtn').addEventListener('click', async ()=>{
   }
 
   try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
+  idbClearAll();
 });
 </script>
 </body>
